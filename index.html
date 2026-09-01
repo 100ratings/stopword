@@ -321,7 +321,7 @@ html,body{ margin:0; padding:0; width:100%; height:100%; background:#000; overfl
   <div id="clockscreen">
     <div id="cl-swipe"></div>
     <div id="cl-kebab"><i></i><i></i><i></i></div>
-    <div id="cl-time" style="font-size: 88px;"><span id="cl-inner" style="direction: ltr;"><span id="cl-g1">00</span><em>:</em><span id="cl-g2">00</span><em class="sep">.</em><span id="cl-g3">00</span></span></div>
+    <div id="cl-time" style="font-size: 88px;"><span id="cl-inner" style="direction: ltr;"><span id="cl-g1">00</span><em>:</em><span id="cl-g2">00</span><em class="sep">,</em><span id="cl-g3">00</span></span></div>
 
     <div id="cl-controls">
       <button id="cl-lap" class="cl-btn dim">Lap</button>
@@ -452,7 +452,7 @@ function clFit(){
   while(inner.getBoundingClientRect().width>avail && size>20 && guard++<60){ size-=2; el.style.fontSize=size+'px'; }
 }
 function clPaint(g){ $('#cl-g1').textContent=g[0]; $('#cl-g2').textContent=g[1]; $('#cl-g3').textContent=g[2]; clFit(); }
-function clLiveLap(){ const el=$('#cl-live'); if(!el) return; const now=clElapsed+(clRun?Date.now()-clStart:0); const g=clFmt(Math.max(0,now-clLapBase)); el.textContent=g[0]+':'+g[1]+'.'+g[2]; }
+function clLiveLap(){ const el=$('#cl-live'); if(!el) return; const now=clElapsed+(clRun?Date.now()-clStart:0); const g=clFmt(Math.max(0,now-clLapBase)); el.textContent=g[0]+':'+g[1]+','+g[2]; }
 function clRender(){ clPaint(clFmt(clElapsed + (clRun ? Date.now()-clStart : 0))); if(!clFrozen) clLiveLap(); }
 function clSetButtons(){
   const lap=$('#cl-lap'), st=$('#cl-start');
@@ -466,11 +466,11 @@ function clSetButtons(){
 }
 function clRenderLaps(){
   const rows=[]; const L=t('b_lap');
-  if(clRun || clElapsed>0) rows.push('<div class="cl-lap live"><span>'+L+' '+(clLaps.length+1)+'</span><span id="cl-live">00:00.00</span></div>');
+  if(clRun || clElapsed>0) rows.push('<div class="cl-lap live"><span>'+L+' '+(clLaps.length+1)+'</span><span id="cl-live">00:00,00</span></div>');
   let mn=Infinity, mx=-Infinity; const showC=clLaps.length>=3;
   if(showC){ clLaps.forEach(ms=>{ if(ms<mn)mn=ms; if(ms>mx)mx=ms; }); }
   const doC=showC && mn!==mx;
-  clLaps.forEach((ms,i)=>{ const g=clFmt(ms); let c='cl-lap'; if(doC){ if(ms===mn)c+=' fast'; else if(ms===mx)c+=' slow'; } rows.push('<div class="'+c+'"><span>'+L+' '+(clLaps.length-i)+'</span><span>'+g[0]+':'+g[1]+'.'+g[2]+'</span></div>'); });
+  clLaps.forEach((ms,i)=>{ const g=clFmt(ms); let c='cl-lap'; if(doC){ if(ms===mn)c+=' fast'; else if(ms===mx)c+=' slow'; } rows.push('<div class="'+c+'"><span>'+L+' '+(clLaps.length-i)+'</span><span>'+g[0]+':'+g[1]+','+g[2]+'</span></div>'); });
   $('#cl-laps').innerHTML=rows.join(''); clLiveLap();
 }
 function clockReset(){
