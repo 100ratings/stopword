@@ -1,0 +1,814 @@
+<!DOCTYPE html><html lang="en" style="--nav-y: 0px; --clock-y: 0px;"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-title" content="Stopword">
+<link rel="manifest" href="stopword.webmanifest">
+<link rel="apple-touch-icon" href="images/icon.png">
+<title>Stopword</title>
+<style>
+:root{
+  --sf: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --roboto: "Roboto", "Google Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --clock-y: 0px;
+  --silver:#d7d7db;
+  --silver-dim:#9a9aa0;
+  --tog-on:#8e8e93;
+}
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body{ margin:0; padding:0; width:100%; height:100%; background:#000; overflow:hidden; overscroll-behavior:none;
+  font-family:var(--sf); color:#fff; -webkit-font-smoothing:antialiased; -webkit-user-select:none; user-select:none; }
+#device{ position:fixed; inset:0; overflow:hidden; background:#000; }
+
+/* ---------- entry (main menu) ---------- */
+#entry{ position:absolute; inset:0; z-index:20; display:flex; flex-direction:column; background:#000; }
+#entry.hidden{ display:none; }
+.entry-nav{ display:flex; align-items:center; justify-content:space-between; padding:calc(env(safe-area-inset-top) + 20px) 18px 0; }
+.entry-nav .t{ flex:1; text-align:center; font-size:20px; font-weight:800; letter-spacing:.3em; padding-left:.3em; color:#fff; }
+.navbtn{ width:40px; height:40px; border-radius:50%; background:#1a1a1c; display:flex; align-items:center; justify-content:center;
+  color:var(--silver); cursor:pointer; border:none; flex:0 0 auto; }
+.navbtn svg{ width:22px; height:22px; }
+.entry-body{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+  padding:0 26px; text-align:center; }
+.mark{ width:88px; height:88px; border-radius:24px; background:linear-gradient(160deg,#232326,#0e0e10);
+  border:1px solid #2a2a2e; display:flex; align-items:center; justify-content:center; margin-bottom:6px;
+  box-shadow:0 12px 34px rgba(0,0,0,.55); }
+.mark svg{ width:48px; height:48px; }
+.markimg{ width:100%; height:100%; object-fit:cover; border-radius:24px; }
+.entry-body h1{ font-size:27px; font-weight:700; margin:0; color:#f5f5f7; letter-spacing:.2px; }
+.entry-body .sub{ font-size:15px; color:#9a9aa0; margin:-6px 0 4px; line-height:1.55; max-width:330px; }
+.field{ width:100%; max-width:360px; position:relative; }
+.field .flabel{ position:absolute; left:18px; top:11px; font-size:10.5px; letter-spacing:.14em; color:#6b6b70;
+  text-transform:uppercase; pointer-events:none; }
+#word-in{ width:100%; font-family:var(--sf); font-size:19px; text-align:left; color:#fff; background:#1c1c1e;
+  border:1px solid #303034; border-radius:16px; padding:30px 18px 14px; outline:none; }
+#word-in:focus{ border-color:#54545a; background:#202023; }
+.go{ width:100%; max-width:360px; padding:17px; border:none; border-radius:16px; cursor:pointer;
+  background:linear-gradient(180deg,#f4f4f6,#d3d3d8); color:#0a0a0b; font-size:17px; font-weight:700; font-family:var(--sf); }
+.go:active{ opacity:.9; transform:translateY(1px); }
+@property --ang{ syntax:"<angle>"; initial-value:0deg; inherits:false; }
+@keyframes glowspin{ to{ --ang:360deg; } }
+.glowwrap{ position:relative; width:100%; max-width:360px; }
+.glowwrap::before{ content:""; position:absolute; inset:-6px; border-radius:22px; z-index:0; pointer-events:none; --ang:0deg;
+  background:conic-gradient(from var(--ang), rgba(150,225,255,0), rgba(150,225,255,.85) 18%, rgba(90,180,255,.55) 33%, rgba(150,225,255,0) 50%, rgba(160,230,255,.8) 78%, rgba(150,225,255,0) 100%);
+  filter:blur(11px); opacity:.6; animation:glowspin 4.6s linear infinite; }
+.glowwrap .go{ position:relative; z-index:1; max-width:none; }
+.entry-hint{ font-size:13px; color:#6b6b70; margin-top:2px; }
+.entry-hint b{ color:var(--silver-dim); font-weight:600; }
+.entry-foot{ text-align:center; padding:0 10px calc(env(safe-area-inset-bottom) + 16px); }
+.entry-foot .wm{ font-weight:900; font-size:11px; letter-spacing:.4em; color:#4a4a4e; text-transform:uppercase; padding-left:.4em; }
+.entry-foot .cr{ font-size:10px; color:#3a3a3e; letter-spacing:.08em; margin-top:6px; }
+
+/* ===== CLOCK (shared) ===== */
+#clockscreen{ position:absolute; inset:0; display:none; background:#000; z-index:0; color:#fff; overflow:hidden; }
+#device.clock-open #clockscreen{ display:block; }
+#cl-swipe{ position:absolute; left:0; right:0; top:0; height:43%; touch-action:none; z-index:3; }
+#cl-time{ position:absolute; left:0; right:0; top:calc(19.4% + var(--clock-y)); text-align:center; font-family:var(--sf);
+  font-weight:100; font-size:88px; line-height:1; letter-spacing:.5px; font-variant-numeric:tabular-nums; white-space:nowrap;
+  will-change:transform; z-index:2; }
+#cl-inner{ display:inline-block; }
+#cl-time em{ font-style:normal; font-weight:200; }
+#cl-time em.sep{ letter-spacing:0; }
+#device.cl-invert{ filter:invert(1); }
+#cl-laps{ position:absolute; left:0; right:0; top:calc(55.6% + var(--clock-y)); bottom:96px; overflow-y:auto;
+  -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
+.cl-lap{ display:flex; justify-content:space-between; padding:11px 16px; font-family:var(--sf); font-size:17px;
+  font-variant-numeric:tabular-nums; border-bottom:1px solid #232325; }
+.cl-lap span{ color:#fff; }
+#device:not(.skin-android) .cl-lap.fast span{ color:#30d158; }
+#device:not(.skin-android) .cl-lap.slow span{ color:#ff453a; }
+#cl-rule{ position:absolute; left:16px; right:16px; top:calc(55.05% + var(--clock-y)); height:1px; background:#38383a; }
+
+/* iOS skin chrome */
+#cl-controls{ position:absolute; left:0; right:0; top:calc(43.5% + var(--clock-y)); z-index:4; display:flex;
+  align-items:center; justify-content:space-between; padding:0 26px; }
+.cl-btn{ width:82px; height:82px; border-radius:50%; border:none; font-family:var(--sf); font-size:18.5px; font-weight:400;
+  cursor:pointer; background:#2c2c2e; color:#fff; padding:0; }
+.cl-btn.dim{ color:#8a8a8e; }
+.cl-btn.go{ background:rgba(48,209,88,.19); color:#30d158; }
+.cl-btn.stop{ background:rgba(255,69,58,.19); color:#ff453a; }
+#cl-dots{ display:flex; gap:9px; }
+#cl-dots i{ width:7px; height:7px; border-radius:50%; background:#4a4a4e; display:block; }
+#cl-dots i.on{ background:#f2f2f7; }
+#cl-tabs{ position:absolute; left:0; right:0; bottom:var(--nav-y, 0px); height:calc(58px + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom); display:flex; background:#000; border-top:1px solid #1d1d1f; z-index:4; }
+.cl-tab{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color:#8a8a8e; }
+.cl-tab svg{ width:26px; height:26px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; }
+.cl-tab svg.fill{ fill:currentColor; stroke:none; }
+.cl-tab svg.fill .hand{ stroke:#000; stroke-width:2.2; fill:none; }
+.cl-tab svg.fill .stem{ stroke:currentColor; stroke-width:2.4; fill:none; }
+.cl-tab span{ font-family:var(--sf); font-size:10px; letter-spacing:.1px; }
+
+/* Android skin chrome */
+#cl-controls-a{ position:absolute; left:0; right:0; top:calc(44% + var(--clock-y)); z-index:4; display:none;
+  align-items:center; justify-content:center; gap:34px; }
+#device.skin-android #cl-controls{ display:none; }
+#device.skin-android #cl-controls-a{ display:flex; }
+#device.skin-android #cl-tabs{ display:none; }
+#device.skin-android #cl-tabs-a{ display:flex; }
+#device.skin-android #clockscreen{ background:#1b1c1e; }
+#device.skin-android #cl-time{ font-family:var(--roboto); font-weight:400; letter-spacing:0; }
+#device.skin-android #cl-rule{ display:none; }
+#device.skin-android .cl-lap{ font-family:var(--roboto); border-bottom:1px solid #2a2c2f; }
+.cl-abtn{ width:60px; height:60px; border-radius:50%; border:none; background:#33363a; color:#e3e3e6; font-family:var(--roboto);
+  font-size:14px; font-weight:500; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.cl-abtn svg{ width:26px; height:26px; fill:currentColor; }
+.cl-fab{ width:76px; height:76px; border-radius:50%; border:none; background:#a8c7fa; color:#062e6f; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; box-shadow:0 6px 18px rgba(0,0,0,.4); }
+.cl-fab svg{ width:34px; height:34px; fill:currentColor; }
+.cl-fab.run{ background:#f2b8b5; color:#601410; }
+#cl-tabs-a{ position:absolute; left:0; right:0; bottom:var(--nav-y, 0px); height:calc(64px + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom); display:none; background:#202124; border-top:1px solid #2a2c2f; z-index:4; }
+.cl-tab-a{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:#9aa0a6; }
+.cl-tab-a .pill{ width:56px; height:30px; border-radius:16px; display:flex; align-items:center; justify-content:center; }
+.cl-tab-a.sel .pill{ background:#004a77; }
+.cl-tab-a.sel{ color:#d3e3fd; }
+.cl-tab-a svg{ width:23px; height:23px; fill:currentColor; }
+.cl-tab-a span{ font-family:var(--roboto); font-size:11px; font-weight:500; }
+
+/* Android 'Black' skin — Samsung One UI replica */
+#device.android-black #cl-controls-a{ display:none; }
+#device.android-black #cl-tabs-a{ display:none; }
+#device.skin-android.android-black #cl-controls{ display:flex; top:auto; bottom:calc(env(safe-area-inset-bottom) + 96px); padding:0 20px; }
+#device.android-black #clockscreen{ background:#000; }
+#device.android-black #clockscreen::before{ content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
+  background:radial-gradient(122% 74% at 50% 85%, rgba(129,93,214,.62), rgba(80,57,158,.42) 23%, rgba(42,29,94,.26) 43%, rgba(13,9,36,.12) 63%, transparent 78%); }
+#device.android-black #cl-time{ top:calc(23.5% + var(--clock-y)); font-family:var(--roboto); font-weight:500; color:#fff; }
+#device.android-black #cl-laps{ top:calc(40% + var(--clock-y)); bottom:262px; }
+#device.android-black #cl-controls .cl-btn{ width:142px; height:142px; font-size:19px; font-weight:400; font-family:var(--roboto); background:#2f2f31; color:#e9e9eb; }
+#device.android-black #cl-controls .cl-btn.dim{ color:#c6c6c8; }
+#device.android-black #cl-controls .cl-btn.go{ background:#3a3a5e; color:#bfbff6; }
+#device.android-black #cl-controls .cl-btn.stop{ background:#512e3d; color:#ffaebf; }
+#cl-kebab{ position:absolute; top:calc(env(safe-area-inset-top) + 18px); right:20px; z-index:6; display:none; flex-direction:column; gap:4px; }
+#cl-kebab i{ width:5px; height:5px; border-radius:50%; background:#cccccf; display:block; }
+#device.android-black #cl-kebab{ display:flex; }
+#cl-tabs-s{ position:absolute; left:12px; right:12px; bottom:calc(env(safe-area-inset-bottom) + 10px + var(--nav-y,0px));
+  height:60px; border-radius:30px; background:#2c2c2e; display:none; align-items:center; z-index:4; box-shadow:0 10px 28px rgba(0,0,0,.5); }
+#device.android-black #cl-tabs-s{ display:flex; }
+.cl-tab-s{ position:relative; flex:1; display:flex; align-items:center; justify-content:center; height:100%; }
+.cl-tab-s.sel::before{ content:""; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:58px; height:42px; border-radius:21px; background:#4a4a4d; }
+.cl-tab-s svg{ position:relative; z-index:1; width:26px; height:26px; fill:none; stroke:#c9c9cc; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+.cl-tab-s.sel svg{ stroke:#fff; }
+
+
+/* Latest iOS skin: floating glass tab bar with an orange selected pill */
+#device.ios-latest #cl-tabs{
+  left:18px; right:18px; bottom:calc(env(safe-area-inset-bottom) + 8px + var(--nav-y,0px));
+  height:64px; padding-bottom:0; border-top:none; border-radius:34px; align-items:stretch;
+  background:rgba(30,30,32,.72); -webkit-backdrop-filter:blur(30px) saturate(1.7); backdrop-filter:blur(30px) saturate(1.7);
+  border:0.5px solid rgba(255,255,255,.10);
+  box-shadow:0 16px 36px rgba(0,0,0,.55), inset 0 .5px 0 rgba(255,255,255,.06);
+}
+#device.ios-latest #cl-tabs .cl-tab{ color:#f2f2f7; margin:8px 6px; border-radius:22px; }
+#device.ios-latest #cl-tabs .cl-tab svg.fill .hand{ stroke:#1c1c1e; }
+#device.ios-latest #cl-tabs .cl-tab.sel{ background:rgba(120,120,128,.30); color:#ff9f0a; }
+
+/* ---------- settings ---------- */
+#settings{ position:absolute; inset:0; z-index:40; background:#000; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  display:none; padding:calc(env(safe-area-inset-top) + 8px) 0 60px; }
+#settings.show{ display:block; }
+.set-top{ display:flex; align-items:center; padding:6px 16px 14px; }
+.set-top h2{ font-size:22px; font-weight:700; margin:0; flex:1; }
+.set-done{ color:var(--silver); font-size:17px; font-weight:600; cursor:pointer; }
+.grp{ margin:0 0 22px; }
+.lbl{ font-size:12px; text-transform:uppercase; letter-spacing:.09em; color:#8a8a8e; margin:0 20px 8px; }
+.card{ background:#1c1c1e; margin:0 12px; border-radius:14px; overflow:hidden; }
+.row{ display:flex; align-items:center; gap:12px; padding:13px 16px; border-bottom:1px solid #2a2a2c; }
+.row:last-child{ border-bottom:none; }
+.rl-wrap{ flex:1; min-width:0; }
+.rlbl{ font-size:16px; color:#f2f2f7; }
+.rsub{ font-size:12.5px; color:#8a8a8e; margin-top:2px; line-height:1.4; }
+.row input[type=text]{ background:#2c2c2e; border:1px solid #3a3a3c; border-radius:9px; color:#fff; font-family:var(--sf);
+  font-size:15px; padding:9px 11px; width:100%; outline:none; }
+.row input[type=text].short{ width:110px; text-align:center; flex:0 0 auto; }
+.langsel{ width:100%; background:#2c2c2e; border:1px solid #3a3a3c; border-radius:10px; color:#fff; font-family:var(--sf); font-size:15px; padding:11px 12px; outline:none; -webkit-appearance:none; appearance:none; }
+.tgl{ width:51px; height:31px; border-radius:16px; background:#39393d; position:relative; flex:0 0 auto; cursor:pointer; transition:background .2s; }
+.tgl:after{ content:""; position:absolute; top:2px; left:2px; width:27px; height:27px; border-radius:50%; background:#fff; transition:transform .2s; }
+.tgl.on{ background:var(--tog-on); } .tgl.on:after{ transform:translateX(20px); }
+.seg{ display:flex; background:#2c2c2e; border-radius:10px; padding:3px; gap:3px; flex:0 0 auto; }
+.seg button{ border:none; background:transparent; color:#c7c7cc; font-family:var(--sf); font-size:14px; padding:7px 13px;
+  border-radius:8px; cursor:pointer; }
+.seg button.sel{ background:#5a5a5e; color:#fff; }
+.seg.wide{ width:100%; } .seg.wide button{ flex:1; }
+.range{ -webkit-appearance:none; width:100%; height:4px; border-radius:2px; background:#3a3a3c; outline:none; }
+.range::-webkit-slider-thumb{ -webkit-appearance:none; width:26px; height:26px; border-radius:50%; background:#f0f0f2; }
+.slrow{ display:block; padding:13px 16px; border-bottom:1px solid #2a2a2c; }
+.slrow .top{ display:flex; justify-content:space-between; margin-bottom:9px; }
+.slrow .top span{ font-size:15px; color:#f2f2f7; } .slrow .top b{ font-size:15px; color:#8a8a8e; font-weight:400; }
+.nudge{ display:flex; gap:8px; width:100%; }
+.nudge button{ flex:1; background:#2c2c2e; border:none; color:#fff; font-family:var(--sf); font-size:15px; padding:11px;
+  border-radius:9px; cursor:pointer; }
+.hidden{ display:none !important; }
+.foot{ text-align:center; margin-top:30px; padding:0 10px; }
+.foot .wm{ font-weight:900; font-size:12px; letter-spacing:.4em; color:#5a5a5e; text-transform:uppercase; padding-left:.4em; }
+.foot .cr{ font-size:10.5px; color:#46464a; letter-spacing:.08em; margin-top:7px; line-height:1.7; }
+
+/* ---------- install gate ---------- */
+#install-gate{ position:absolute; inset:0; z-index:60; background:#000; display:none; flex-direction:column;
+  align-items:center; justify-content:center; text-align:center; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  padding:calc(env(safe-area-inset-top) + 20px) 0 calc(env(safe-area-inset-bottom) + 20px); }
+#install-gate.show{ display:flex; }
+.ig-inner{ width:100%; max-width:400px; padding:0 32px; display:flex; flex-direction:column; align-items:center; gap:15px; }
+.ig-wm{ font-weight:900; font-size:11px; letter-spacing:.4em; color:#4a4a4e; text-transform:uppercase; padding-left:.4em; }
+.ig-mark{ width:80px; height:80px; border-radius:20px; overflow:hidden; background:linear-gradient(160deg,#232326,#0e0e10);
+  border:1px solid #2a2a2e; box-shadow:0 12px 30px rgba(0,0,0,.5); }
+.ig-mark img{ width:100%; height:100%; object-fit:cover; }
+#install-gate h1{ font-size:25px; font-weight:700; margin:2px 0 0; color:#f5f5f7; }
+.ig-lede{ font-size:15px; color:#9a9aa0; line-height:1.56; margin:0; }
+.ig-steps{ list-style:none; padding:0; margin:6px 0 0; width:100%; text-align:left; display:flex; flex-direction:column; gap:14px; }
+.ig-steps li{ display:flex; align-items:center; gap:13px; font-size:15.5px; color:#e9e9ee; line-height:1.35; }
+.ig-steps .n{ width:27px; height:27px; border-radius:50%; background:#1c1c1e; border:1px solid #2c2c2e; display:flex;
+  align-items:center; justify-content:center; font-size:13px; color:var(--silver); flex:0 0 auto; }
+.ig-steps .ic{ width:24px; flex:0 0 auto; color:var(--silver); display:flex; }
+.ig-steps .ic svg{ width:23px; height:23px; fill:currentColor; }
+.ig-steps b{ color:#fff; font-weight:600; }
+.ig-steps .ig-tx{ flex:1; }
+.ig-generic{ font-size:14.5px; color:#9a9aa0; line-height:1.55; }
+.ig-cont{ margin-top:12px; font-size:14px; color:#7a7a80; text-decoration:underline; cursor:pointer; }
+.ig-cont:active{ opacity:.7; }
+#about{ position:absolute; inset:0; z-index:50; background:#000; display:none; flex-direction:column;
+  padding:calc(env(safe-area-inset-top) + 8px) 0 0; }
+#about.show{ display:flex; }
+.ab-top{ display:flex; justify-content:flex-end; padding:6px 18px 4px; }
+.ab-done{ color:var(--silver); font-size:17px; font-weight:600; cursor:pointer; }
+.ab-body{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; display:flex; flex-direction:column; align-items:center;
+  text-align:center; padding:8px 28px calc(env(safe-area-inset-bottom) + 34px); gap:16px; }
+.ab-photowrap{ position:relative; width:132px; height:132px; flex:0 0 auto; }
+.ab-photowrap::before{ content:""; position:absolute; inset:-9px; border-radius:50%; z-index:0; pointer-events:none; --ang:0deg;
+  background:conic-gradient(from var(--ang), rgba(150,225,255,0), rgba(150,225,255,.85) 18%, rgba(90,180,255,.55) 33%, rgba(150,225,255,0) 50%, rgba(160,230,255,.8) 78%, rgba(150,225,255,0) 100%);
+  filter:blur(12px); opacity:.55; animation:glowspin 5.2s linear infinite; }
+.ab-photowrap .ab-photo{ position:relative; z-index:1; }
+.ab-photo{ width:132px; height:132px; border-radius:50%; overflow:hidden; background:#1a1a1c; border:1px solid #2c2c2e;
+  display:flex; align-items:center; justify-content:center; flex:0 0 auto; box-shadow:0 12px 34px rgba(0,0,0,.5); }
+.ab-photo img{ width:100%; height:100%; object-fit:cover; }
+.ab-photo.noimg{ position:relative; }
+.ab-photo.noimg:after{ content:"JK"; font-size:38px; font-weight:800; letter-spacing:.06em; color:#55555a; }
+.ab-name{ font-size:22px; font-weight:800; letter-spacing:.22em; color:#f5f5f7; padding-left:.22em; margin-top:2px; }
+.ab-bio{ font-size:15px; color:#9a9aa0; line-height:1.62; max-width:360px; margin:2px 0 8px; }
+.ab-btn{ display:flex; align-items:center; justify-content:center; width:100%; max-width:360px; padding:17px; border-radius:15px;
+  background:#17171a; border:1px solid #2c2c2e; color:#e9e9ee; font-family:var(--sf); font-size:14px; font-weight:700;
+  letter-spacing:.16em; text-decoration:none; cursor:pointer; }
+.ab-btn:active{ opacity:.85; transform:translateY(1px); }
+.ab-btn.primary{ background:linear-gradient(180deg,#f4f4f6,#d3d3d8); color:#0a0a0b; border:none; }
+.ab-btn.soon-btn{ flex-direction:column; gap:2px; background:#141416; border:1px solid #232326; color:#6a6a6e; cursor:default; }
+.ab-btn.soon-btn:active{ opacity:1; transform:none; }
+.ab-btn.soon-btn .soon{ font-size:10.5px; letter-spacing:.1em; text-transform:none; color:#4e4e52; font-weight:500; }
+.ab-wm{ margin-top:16px; font-weight:900; font-size:11px; letter-spacing:.4em; color:#3f3f43; text-transform:uppercase; padding-left:.4em; }
+.pvwrap{ margin:10px 12px 0; }
+.pv{ position:relative; width:150px; margin:0 auto; aspect-ratio:150/325; background:#000; border-radius:26px;
+  border:1px solid #2c2c2e; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,.5); }
+.pv.android{ background:#1b1c1e; }
+.pv-time{ position:absolute; left:0; right:0; top:calc(19.4% + var(--pv-y,0px)); text-align:center; font-family:var(--sf);
+  font-weight:100; font-size:26px; line-height:1; font-variant-numeric:tabular-nums; color:#fff; white-space:nowrap; }
+.pv.android .pv-time{ font-family:var(--roboto); font-weight:400; }
+.pv-ctrl{ position:absolute; left:0; right:0; top:calc(43.5% + var(--pv-y,0px)); display:flex; align-items:center;
+  justify-content:space-between; padding:0 14px; }
+.pv.android .pv-ctrl{ justify-content:center; gap:14px; top:calc(44% + var(--pv-y,0px)); }
+.pv-b{ width:30px; height:30px; border-radius:50%; background:#2c2c2e; color:#8a8a8e; font-size:8px; display:flex;
+  align-items:center; justify-content:center; }
+.pv-b.go{ background:rgba(48,209,88,.19); color:#30d158; }
+.pv.android .pv-b{ display:none; }
+.pv-fab{ display:none; width:34px; height:34px; border-radius:50%; background:#a8c7fa; }
+.pv.android .pv-fab{ display:block; }
+.pv-mini{ display:none; }
+.pv.android .pv-mini{ display:block; width:26px; height:26px; border-radius:50%; background:#33363a; }
+.pv-tabs{ position:absolute; left:0; right:0; bottom:var(--pv-nav-y, 0px); height:26px; display:flex; background:#000; border-top:1px solid #1d1d1f; }
+.pv.android .pv-tabs{ background:#202124; border-top:1px solid #2a2c2f; }
+.pv-tabs i{ flex:1; display:flex; align-items:center; justify-content:center; }
+.pv-tabs i:before{ content:""; width:12px; height:12px; border-radius:50%; border:1.4px solid #55555a; }
+.pv-tabs i.sel:before{ border-color:#c7c7cc; background:rgba(199,199,204,.25); }
+.pv.android .pv-tabs i.sel:before{ border-color:#8ab4f8; background:rgba(138,180,248,.3); }
+.pv.android-black{ background:radial-gradient(105% 70% at 50% 86%, rgba(122,88,208,.5), rgba(44,30,96,.24) 44%, transparent 72%), #000; }
+.pv.android-black .pv-tabs{ left:8px; right:8px; bottom:calc(4px + var(--pv-nav-y,0px)); height:20px; border-radius:12px; background:#2c2c2e; border:none; }
+.pv.android-black .pv-tabs i:before{ border-color:#c9c9cc; }
+.pv.android-black .pv-tabs i.sel:before{ border-color:#fff; background:rgba(74,74,77,.95); }
+.pv.android-black .pv-b.go{ background:#3a3a5e; color:#bfbff6; }
+.pv.ios-latest .pv-tabs{ left:10px; right:10px; bottom:calc(4px + var(--pv-nav-y,0px)); height:20px; border-radius:12px;
+  background:rgba(40,40,44,.9); border:0.5px solid rgba(255,255,255,.1); box-shadow:inset 0 .5px 0 rgba(255,255,255,.06); }
+.pv.ios-latest .pv-tabs i:before{ border-color:#e2e2e6; }
+.pv.ios-latest .pv-tabs i.sel:before{ border-color:#ff9f0a; background:rgba(120,120,128,.34); }
+.pv-cap{ text-align:center; font-size:11px; color:#6b6b70; margin-top:9px; }
+</style>
+</head>
+<body>
+<div id="device" class="ios-latest" dir="ltr">
+
+  <!-- main menu -->
+  <div id="entry">
+    <div class="entry-nav">
+      <button id="entry-about" class="navbtn" aria-label="about"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9.5"></circle><path d="M12 11v5" stroke-linecap="round"></path><circle cx="12" cy="7.7" r="1.1" fill="currentColor" stroke="none"></circle></svg></button>
+      <div class="t">STOPWORD</div>
+      <button id="entry-gear" class="navbtn" aria-label="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.2"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
+    </div>
+    <div class="entry-body">
+      <div class="mark"><img src="images/icon.png" alt="Stopword" class="markimg" onerror="this.style.display='none'" style="display: none;"></div>
+      <h1 data-i18n="m_h1">Reveal any word</h1>
+      <div class="sub" data-i18n="m_sub">Type a word, hand over an ordinary stopwatch, then stop it whenever you like. The time becomes the word.</div>
+      <div class="field">
+        <div class="flabel" data-i18n="m_field">Word or name</div>
+        <input id="word-in" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="">
+      </div>
+      <div class="glowwrap"><button class="go" id="word-go" data-i18n="m_open">Open stopwatch</button></div>
+      <div class="entry-hint" data-i18n="m_hint">Set a word in Settings to skip this screen.</div>
+    </div>
+    <div class="entry-foot">
+      <div class="wm">THE REAL UNDERGROUND</div>
+      <div class="cr" data-i18n="m_dev">Developed by Jake Keane</div>
+    </div>
+  </div>
+
+  <!-- stopwatch -->
+  <div id="clockscreen">
+    <div id="cl-swipe"></div>
+    <div id="cl-kebab"><i></i><i></i><i></i></div>
+    <div id="cl-time" style="font-size: 88px;"><span id="cl-inner" style="direction: ltr;"><span id="cl-g1">00</span><em>:</em><span id="cl-g2">00</span><em class="sep">.</em><span id="cl-g3">00</span></span></div>
+
+    <div id="cl-controls">
+      <button id="cl-lap" class="cl-btn dim">Lap</button>
+      <div id="cl-dots"><i class="on"></i><i></i></div>
+      <button id="cl-start" class="cl-btn go">Start</button>
+    </div>
+    <div id="cl-controls-a">
+      <button class="cl-abtn" id="cl-lap-a">Lap</button>
+      <button class="cl-fab" id="cl-fab-a" aria-label="start"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg></button>
+      <button class="cl-abtn" id="cl-reset-a" aria-label="reset"><svg viewBox="0 0 24 24"><path d="M12 5V2L7 7l5 5V8c3.3 0 6 2.7 6 6s-2.7 6-6 6-6-2.7-6-6H4c0 4.4 3.6 8 8 8s8-3.6 8-8-3.6-8-8-8z"></path></svg></button>
+    </div>
+
+    <div id="cl-rule"></div>
+    <div id="cl-laps"></div>
+
+    <div id="cl-tabs">
+      <div class="cl-tab"><svg viewBox="0 0 28 28"><circle cx="14" cy="14" r="10.5"></circle><ellipse cx="14" cy="14" rx="4.4" ry="10.5"></ellipse><path d="M3.9 10.6h20.2M3.9 17.4h20.2"></path></svg><span data-i18n="t_world">World Clock</span></div>
+      <div class="cl-tab"><svg viewBox="0 0 28 28"><circle cx="14" cy="15" r="9"></circle><path d="M14 10.5V15l3 2.2"></path><path d="M4.6 7.4a5.6 5.6 0 0 1 5-3.2M23.4 7.4a5.6 5.6 0 0 0-5-3.2"></path></svg><span data-i18n="t_alarms">Alarms</span></div>
+      <div class="cl-tab sel"><svg viewBox="0 0 28 28" class="fill"><circle cx="14" cy="15.5" r="9.6"></circle><path d="M14 15.5V9.6" class="hand"></path><rect x="11.6" y="2.2" width="4.8" height="2.5" rx="1.1"></rect><rect x="12.8" y="4" width="2.4" height="2.4"></rect><path d="M21.4 7.2l2.1-2.1" class="stem"></path></svg><span data-i18n="t_stopwatch">Stopwatch</span></div>
+      <div class="cl-tab"><svg viewBox="0 0 28 28"><circle cx="14" cy="15" r="9.4"></circle><path d="M14 15V9.4"></path><path d="M20.6 6.6l2-2"></path></svg><span data-i18n="t_timers">Timers</span></div>
+    </div>
+    <div id="cl-tabs-a">
+      <div class="cl-tab-a"><div class="pill"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.2 14.2L11 13V7h1.5v5.2l4.5 2.7-.8 1.3z"></path></svg></div><span data-i18n="t_clock">Clock</span></div>
+      <div class="cl-tab-a"><div class="pill"><svg viewBox="0 0 24 24"><path d="M22 5.7l-4.6-3.9-1.3 1.5 4.6 3.9L22 5.7zM7.9 3.3L6.6 1.8 2 5.7l1.3 1.5 4.6-3.9zM12.5 8H11v6l4.7 2.9.8-1.2-4-2.4V8zM12 4a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"></path></svg></div><span data-i18n="t_alarm">Alarm</span></div>
+      <div class="cl-tab-a"><div class="pill"><svg viewBox="0 0 24 24"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.962 8.962 0 0 0 12 4a9 9 0 1 0 9 9c0-2.12-.74-4.07-1.97-5.61z"></path></svg></div><span data-i18n="t_timer">Timer</span></div>
+      <div class="cl-tab-a sel"><div class="pill"><svg viewBox="0 0 24 24"><path d="M15 1H9v2h6V1zm4.03 6.39l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.962 8.962 0 0 0 12 4a9 9 0 1 0 9 9c0-2.12-.74-4.07-1.97-5.61zM13 14h-2V8h2v6z"></path></svg></div><span data-i18n="t_stopwatch">Stopwatch</span></div>
+    </div>
+    <div id="cl-tabs-s">
+      <div class="cl-tab-s"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"></circle><path d="M12 9.2V13l2.6 1.7"></path><path d="M4.4 5.6l3.1-2.5M19.6 5.6l-3.1-2.5"></path></svg></div>
+      <div class="cl-tab-s"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><ellipse cx="12" cy="12" rx="3.7" ry="9"></ellipse><path d="M3.1 9h17.8M3.1 15h17.8"></path></svg></div>
+      <div class="cl-tab-s sel"><svg viewBox="0 0 24 24"><circle cx="12" cy="13.6" r="7.8"></circle><path d="M12 13.6V9"></path><path d="M9.7 3h4.6M12 3v2.4"></path><path d="M18.6 6.7l1.5-1.5"></path></svg></div>
+      <div class="cl-tab-s"><svg viewBox="0 0 24 24"><path d="M6.5 3h11M6.5 21h11M8 3.4v3.1l4 4 4-4V3.4M8 20.6v-3.1l4-4 4 4v3.1"></path></svg></div>
+    </div>
+  </div>
+
+  <div id="settings"></div>
+
+  <!-- install gate (shown when not running from the home screen) -->
+  <div id="install-gate" class="show">
+    <div class="ig-inner">
+      <div class="ig-wm">THE REAL UNDERGROUND</div>
+      <div class="ig-mark"><img src="images/icon.png" alt="" onerror="this.style.display='none'" style="display: none;"></div>
+      <h1 data-i18n="ig_title">Add to Home Screen</h1>
+      <p class="ig-lede" data-i18n="ig_lede">Stopword runs full screen from your home screen, with no browser bars to give it away. Install it once, then open it from the icon.</p>
+      <ol class="ig-steps" id="ig-ios" style="display: none;">
+        <li><span class="n">1</span><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2l4 4h-3v7h-2V6H8l4-4zM5 11h3v2H6v7h12v-7h-2v-2h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z"></path></svg></span><span class="ig-tx" data-i18n="ig_ios1">Tap the Share icon in Safari.</span></li>
+        <li><span class="n">2</span><span class="ic"><svg viewBox="0 0 24 24"><path d="M19 11h-6V5h-2v6H5v2h6v6h2v-6h6z"></path></svg></span><span class="ig-tx" data-i18n="ig_ios2">Choose Add to Home Screen.</span></li>
+        <li><span class="n">3</span><span class="ic"><svg viewBox="0 0 24 24"><path d="M9 16.2l-3.5-3.5L4 14.2l5 5 11-11-1.4-1.4z"></path></svg></span><span class="ig-tx" data-i18n="ig_ios3">Tap Add, then open it from the icon.</span></li>
+      </ol>
+      <ol class="ig-steps" id="ig-android">
+        <li><span class="n">1</span><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"></path></svg></span><span class="ig-tx" data-i18n="ig_and1">Tap the menu in Chrome.</span></li>
+        <li><span class="n">2</span><span class="ic"><svg viewBox="0 0 24 24"><path d="M18 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-6 3l4 4h-3v4h-2v-4H8l4-4z"></path></svg></span><span class="ig-tx" data-i18n="ig_and2">Choose Install app or Add to Home screen.</span></li>
+        <li><span class="n">3</span><span class="ic"><svg viewBox="0 0 24 24"><path d="M9 16.2l-3.5-3.5L4 14.2l5 5 11-11-1.4-1.4z"></path></svg></span><span class="ig-tx" data-i18n="ig_and3">Confirm, then open it from the icon.</span></li>
+      </ol>
+      <div class="ig-generic" id="ig-generic" data-i18n="ig_generic" style="display: none;">Open this page on your phone in Safari or Chrome, then add it to your home screen.</div>
+      <div class="ig-cont" id="ig-continue" data-i18n="ig_continue">Continue in browser</div>
+    </div>
+  </div>
+
+  <!-- about -->
+  <div id="about">
+    <div class="ab-top"><div class="ab-done" id="ab-done" data-i18n="a_done">Done</div></div>
+    <div class="ab-body">
+      <div class="ab-photowrap"><div class="ab-photo noimg" id="ab-photo"><img src="images/headshot.png" alt="" onerror="this.style.display='none';document.getElementById('ab-photo').classList.add('noimg')" style="display: none;"></div></div>
+      <div class="ab-name">JAKE KEANE</div>
+      <p class="ab-bio" data-i18n="a_bio">Jake Keane is a mentalist, esoteric researcher, and performance consultant based in the UK. Combining psychological subtle craft, historical occult research, and theatrical storytelling, he consults for creators worldwide while producing original material for performers and inquisitive minds.</p>
+      <a class="ab-btn" href="https://youtu.be/-Oa8XUwGOAg" target="_blank" rel="noopener" data-i18n="a_tutorial">PLAY TUTORIAL</a>
+      <a class="ab-btn" href="https://trusecrets.com/booktest.html" target="_blank" rel="noopener">THE $5 BOOK TEST</a>
+      <a class="ab-btn" href="https://www.trusecrets.com/engramproject.html" target="_blank" rel="noopener">THE ENGRAM PROJECT</a>
+      <a class="ab-btn primary" href="https://www.trusecrets.com" target="_blank" rel="noopener" data-i18n="a_products">MORE PRODUCTS</a>
+      <a class="ab-btn" href="https://www.patreon.com/c/TheRealUnderground" target="_blank" rel="noopener" data-i18n="a_membership">JOIN MEMBERSHIP</a>
+      <a class="ab-btn" href="https://www.thetarotreaders.com" target="_blank" rel="noopener" data-i18n="a_podcast">TAROT PODCAST</a>
+      <a class="ab-btn" href="mailto:hello@jakekeane.com?subject=BOOK%20CONSULTATION">BOOK CONSULTATION</a>
+      <div class="ab-wm">THE REAL UNDERGROUND</div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const device = $('#device'), R = document.documentElement;
+
+/* ---------------- state ---------------- */
+const DEF = {
+  presetWord:'', usePreset:false, skin:'ios', iosStyle:'latest', androidStyle:'grey',
+  glitch:'normal', clockDelay:6, clockY:0, navYLatest:0, navYFlush:0, lang:'en',
+  two:false, twoVal:'', twoMode:'solo'
+};
+let S = Object.assign({}, DEF);
+try{ const raw=localStorage.getItem('stopword'); if(raw) S=Object.assign({}, DEF, JSON.parse(raw)); }catch(_){}
+function save(){ try{ localStorage.setItem('stopword', JSON.stringify(S)); }catch(_){} }
+
+/* ---------------- languages ---------------- */
+const LANGS=[['en','English'],['es','Español'],['fr','Français'],['de','Deutsch'],['it','Italiano'],['pt','Português'],['nl','Nederlands'],['ru','Русский'],['ja','日本語'],['zh','中文'],['ko','한국어'],['ar','العربية'],['he','עברית']];
+const T={"en": {"m_h1": "Reveal any word", "m_sub": "Type a word, hand over an ordinary stopwatch, then stop it whenever you like. The time becomes the word.", "m_field": "Word or name", "m_open": "Open stopwatch", "m_hint": "Set a word in Settings to skip this screen.", "m_dev": "Developed by Jake Keane", "t_world": "World Clock", "t_alarms": "Alarms", "t_stopwatch": "Stopwatch", "t_timers": "Timers", "t_clock": "Clock", "t_alarm": "Alarm", "t_timer": "Timer", "b_lap": "Lap", "b_start": "Start", "b_stop": "Stop", "b_reset": "Reset", "a_done": "Done", "a_bio": "Jake Keane is a mentalist, esoteric researcher, and performance consultant based in the UK. Combining psychological subtle craft, historical occult research, and theatrical storytelling, he consults for creators worldwide while producing original material for performers and inquisitive minds.", "a_tutorial": "PLAY TUTORIAL", "a_soon": "coming soon", "a_products": "MORE PRODUCTS", "a_membership": "JOIN MEMBERSHIP", "a_podcast": "TAROT PODCAST", "s_title": "Settings", "s_skin": "Skin", "s_iosstyle": "iOS style", "s_iosstyle_sub": "Classic, or the latest floating tab bar", "s_classic": "Classic", "s_latest": "Latest", "s_opening": "Opening", "s_setword": "Set word", "s_setword_sub": "The word or name the stopwatch will reveal", "s_ph_word": "word", "s_skip": "Skip the entry box", "s_skip_sub": "Open straight to the stopwatch using the set word above", "s_reveal": "Reveal", "s_delay": "Delay before it reveals", "s_glitch": "Glitch intensity", "s_subtle": "Subtle", "s_normal": "Normal", "s_heavy": "Heavy", "s_force": "Force the last two digits", "s_two": "Two digit force", "s_two_sub": "Stop on a time whose last two digits are yours", "s_twodigits": "The two digits", "s_onstop": "On stop", "s_onstop_sub": "Show only the forced number, or force the number then reveal the word too", "s_number": "Number", "s_andword": "And word", "s_position": "Position", "s_time": "Time", "s_navbar": "Nav bar", "s_up": "Up", "s_down": "Down", "s_preview": "Live preview", "s_language": "Language", "ig_title": "Add to Home Screen", "ig_lede": "Stopword runs full screen from your home screen, with no browser bars to give it away. Install it once, then open it from the icon.", "ig_ios1": "Tap the Share icon in Safari.", "ig_ios2": "Choose Add to Home Screen.", "ig_ios3": "Tap Add, then open it from the icon.", "ig_and1": "Tap the menu in Chrome.", "ig_and2": "Choose Install app or Add to Home screen.", "ig_and3": "Confirm, then open it from the icon.", "ig_generic": "Open this page on your phone in Safari or Chrome, then add it to your home screen.", "ig_continue": "Continue in browser", "s_androidstyle": "Android style", "s_androidstyle_sub": "Standard grey, or a black Samsung look", "s_grey": "Grey", "s_black": "Black"}, "es": {"m_h1": "Revela cualquier palabra", "m_sub": "Escribe una palabra, entrega un cronómetro normal y deténlo cuando quieras. El tiempo se convierte en la palabra.", "m_field": "Palabra o nombre", "m_open": "Abrir cronómetro", "m_hint": "Define una palabra en Ajustes para saltar esta pantalla.", "m_dev": "Desarrollado por Jake Keane", "t_world": "Reloj mundial", "t_alarms": "Alarmas", "t_stopwatch": "Cronómetro", "t_timers": "Temporizadores", "t_clock": "Reloj", "t_alarm": "Alarma", "t_timer": "Temporizador", "b_lap": "Vuelta", "b_start": "Iniciar", "b_stop": "Detener", "b_reset": "Restablecer", "a_done": "Listo", "a_bio": "Jake Keane es mentalista, investigador de lo esotérico y consultor de espectáculos afincado en el Reino Unido. Combinando la sutileza psicológica, la investigación oculta histórica y la narración teatral, asesora a creadores de todo el mundo y produce material original para artistas y mentes curiosas.", "a_tutorial": "VER TUTORIAL", "a_soon": "próximamente", "a_products": "MÁS PRODUCTOS", "a_membership": "HAZTE MIEMBRO", "a_podcast": "PÓDCAST DE TAROT", "s_title": "Ajustes", "s_skin": "Aspecto", "s_iosstyle": "Estilo iOS", "s_iosstyle_sub": "Clásico o la barra flotante más reciente", "s_classic": "Clásico", "s_latest": "Reciente", "s_opening": "Apertura", "s_setword": "Definir palabra", "s_setword_sub": "La palabra o nombre que revelará el cronómetro", "s_ph_word": "palabra", "s_skip": "Saltar la pantalla inicial", "s_skip_sub": "Abre directo al cronómetro con la palabra definida arriba", "s_reveal": "Revelación", "s_delay": "Retardo antes de revelar", "s_glitch": "Intensidad del efecto", "s_subtle": "Sutil", "s_normal": "Normal", "s_heavy": "Fuerte", "s_force": "Forzar los dos últimos dígitos", "s_two": "Forzado de dos dígitos", "s_two_sub": "Detente en un tiempo cuyos dos últimos dígitos sean los tuyos", "s_twodigits": "Los dos dígitos", "s_onstop": "Al detener", "s_onstop_sub": "Muestra solo el número forzado, o fuerza el número y luego revela también la palabra", "s_number": "Número", "s_andword": "Y palabra", "s_position": "Posición", "s_time": "Tiempo", "s_navbar": "Barra", "s_up": "Arriba", "s_down": "Abajo", "s_preview": "Vista previa", "s_language": "Idioma", "ig_title": "Añadir a inicio", "ig_lede": "Stopword se abre a pantalla completa desde tu pantalla de inicio, sin barras del navegador que lo delaten. Instálalo una vez y ábrelo desde el icono.", "ig_ios1": "Toca el icono Compartir en Safari.", "ig_ios2": "Elige Añadir a pantalla de inicio.", "ig_ios3": "Toca Añadir y ábrelo desde el icono.", "ig_and1": "Toca el menú en Chrome.", "ig_and2": "Elige Instalar app o Añadir a pantalla de inicio.", "ig_and3": "Confirma y ábrelo desde el icono.", "ig_generic": "Abre esta página en tu teléfono con Safari o Chrome y añádela a tu pantalla de inicio.", "ig_continue": "Continuar en el navegador", "s_androidstyle": "Estilo Android", "s_androidstyle_sub": "Gris estándar, o un aspecto negro de Samsung", "s_grey": "Gris", "s_black": "Negro"}, "fr": {"m_h1": "Révélez n'importe quel mot", "m_sub": "Saisissez un mot, tendez un chronomètre ordinaire, puis arrêtez-le quand vous voulez. Le temps devient le mot.", "m_field": "Mot ou nom", "m_open": "Ouvrir le chronomètre", "m_hint": "Définissez un mot dans Réglages pour sauter cet écran.", "m_dev": "Développé par Jake Keane", "t_world": "Horloge mondiale", "t_alarms": "Alarmes", "t_stopwatch": "Chronomètre", "t_timers": "Minuteurs", "t_clock": "Horloge", "t_alarm": "Alarme", "t_timer": "Minuteur", "b_lap": "Tour", "b_start": "Démarrer", "b_stop": "Arrêter", "b_reset": "Réinitialiser", "a_done": "OK", "a_bio": "Jake Keane est mentaliste, chercheur en ésotérisme et consultant en spectacle basé au Royaume-Uni. Alliant subtilité psychologique, recherche occulte historique et narration théâtrale, il conseille des créateurs du monde entier tout en produisant du matériel original pour les artistes et les esprits curieux.", "a_tutorial": "VOIR LE TUTORIEL", "a_soon": "bientôt disponible", "a_products": "PLUS DE PRODUITS", "a_membership": "DEVENIR MEMBRE", "a_podcast": "PODCAST TAROT", "s_title": "Réglages", "s_skin": "Apparence", "s_iosstyle": "Style iOS", "s_iosstyle_sub": "Classique ou la nouvelle barre flottante", "s_classic": "Classique", "s_latest": "Récent", "s_opening": "Ouverture", "s_setword": "Définir le mot", "s_setword_sub": "Le mot ou nom que le chronomètre révélera", "s_ph_word": "mot", "s_skip": "Ignorer l'écran de saisie", "s_skip_sub": "Ouvre directement le chronomètre avec le mot défini ci-dessus", "s_reveal": "Révélation", "s_delay": "Délai avant la révélation", "s_glitch": "Intensité de l'effet", "s_subtle": "Subtil", "s_normal": "Normal", "s_heavy": "Fort", "s_force": "Forcer les deux derniers chiffres", "s_two": "Forçage à deux chiffres", "s_two_sub": "S'arrête sur un temps dont les deux derniers chiffres sont les vôtres", "s_twodigits": "Les deux chiffres", "s_onstop": "À l'arrêt", "s_onstop_sub": "Afficher seulement le nombre forcé, ou forcer le nombre puis révéler aussi le mot", "s_number": "Nombre", "s_andword": "Et le mot", "s_position": "Position", "s_time": "Temps", "s_navbar": "Barre", "s_up": "Haut", "s_down": "Bas", "s_preview": "Aperçu en direct", "s_language": "Langue", "ig_title": "Ajouter à l'accueil", "ig_lede": "Stopword s'ouvre en plein écran depuis votre écran d'accueil, sans barre de navigateur qui le trahit. Installez-le une fois, puis ouvrez-le depuis l'icône.", "ig_ios1": "Touchez l'icône Partager dans Safari.", "ig_ios2": "Choisissez Sur l'écran d'accueil.", "ig_ios3": "Touchez Ajouter, puis ouvrez depuis l'icône.", "ig_and1": "Touchez le menu dans Chrome.", "ig_and2": "Choisissez Installer l'application ou Ajouter à l'écran d'accueil.", "ig_and3": "Confirmez, puis ouvrez depuis l'icône.", "ig_generic": "Ouvrez cette page sur votre téléphone dans Safari ou Chrome, puis ajoutez-la à votre écran d'accueil.", "ig_continue": "Continuer dans le navigateur", "s_androidstyle": "Style Android", "s_androidstyle_sub": "Gris standard, ou un style Samsung noir", "s_grey": "Gris", "s_black": "Noir"}, "de": {"m_h1": "Enthülle jedes Wort", "m_sub": "Gib ein Wort ein, reiche eine ganz normale Stoppuhr weiter und stoppe sie, wann du willst. Die Zeit wird zum Wort.", "m_field": "Wort oder Name", "m_open": "Stoppuhr öffnen", "m_hint": "Lege in den Einstellungen ein Wort fest, um diesen Bildschirm zu überspringen.", "m_dev": "Entwickelt von Jake Keane", "t_world": "Weltuhr", "t_alarms": "Wecker", "t_stopwatch": "Stoppuhr", "t_timers": "Timer", "t_clock": "Uhr", "t_alarm": "Wecker", "t_timer": "Timer", "b_lap": "Runde", "b_start": "Start", "b_stop": "Stopp", "b_reset": "Zurücksetzen", "a_done": "Fertig", "a_bio": "Jake Keane ist Mentalist, Forscher des Esoterischen und Bühnenberater mit Sitz im Vereinigten Königreich. Er verbindet psychologische Feinheit, historische okkulte Forschung und theatrales Erzählen, berät Kreative weltweit und produziert eigenes Material für Künstler und wissbegierige Köpfe.", "a_tutorial": "TUTORIAL ANSEHEN", "a_soon": "bald verfügbar", "a_products": "MEHR PRODUKTE", "a_membership": "MITGLIED WERDEN", "a_podcast": "TAROT-PODCAST", "s_title": "Einstellungen", "s_skin": "Design", "s_iosstyle": "iOS-Stil", "s_iosstyle_sub": "Klassisch oder die neue schwebende Leiste", "s_classic": "Klassisch", "s_latest": "Neu", "s_opening": "Start", "s_setword": "Wort festlegen", "s_setword_sub": "Das Wort oder der Name, den die Stoppuhr enthüllt", "s_ph_word": "Wort", "s_skip": "Eingabefeld überspringen", "s_skip_sub": "Öffnet direkt die Stoppuhr mit dem oben festgelegten Wort", "s_reveal": "Enthüllung", "s_delay": "Verzögerung vor der Enthüllung", "s_glitch": "Glitch-Intensität", "s_subtle": "Dezent", "s_normal": "Normal", "s_heavy": "Stark", "s_force": "Letzte zwei Ziffern erzwingen", "s_two": "Zwei-Ziffern-Force", "s_two_sub": "Stoppt bei einer Zeit, deren letzte zwei Ziffern deine sind", "s_twodigits": "Die zwei Ziffern", "s_onstop": "Beim Stoppen", "s_onstop_sub": "Nur die erzwungene Zahl zeigen oder die Zahl erzwingen und dann auch das Wort enthüllen", "s_number": "Zahl", "s_andword": "Und Wort", "s_position": "Position", "s_time": "Zeit", "s_navbar": "Leiste", "s_up": "Hoch", "s_down": "Runter", "s_preview": "Live-Vorschau", "s_language": "Sprache", "ig_title": "Zum Home-Bildschirm", "ig_lede": "Stopword läuft im Vollbild von deinem Home-Bildschirm, ohne verräterische Browserleisten. Einmal installieren, dann über das Symbol öffnen.", "ig_ios1": "Tippe auf das Teilen-Symbol in Safari.", "ig_ios2": "Wähle Zum Home-Bildschirm.", "ig_ios3": "Tippe auf Hinzufügen und öffne es über das Symbol.", "ig_and1": "Tippe auf das Menü in Chrome.", "ig_and2": "Wähle App installieren oder Zum Startbildschirm zufügen.", "ig_and3": "Bestätige und öffne es über das Symbol.", "ig_generic": "Öffne diese Seite auf deinem Handy in Safari oder Chrome und füge sie zum Home-Bildschirm hinzu.", "ig_continue": "Im Browser fortfahren", "s_androidstyle": "Android-Stil", "s_androidstyle_sub": "Standardgrau oder ein schwarzer Samsung-Look", "s_grey": "Grau", "s_black": "Schwarz"}, "it": {"m_h1": "Rivela qualsiasi parola", "m_sub": "Digita una parola, porgi un normale cronometro e fermalo quando vuoi. Il tempo diventa la parola.", "m_field": "Parola o nome", "m_open": "Apri cronometro", "m_hint": "Imposta una parola in Impostazioni per saltare questa schermata.", "m_dev": "Sviluppato da Jake Keane", "t_world": "Orologio mondiale", "t_alarms": "Sveglie", "t_stopwatch": "Cronometro", "t_timers": "Timer", "t_clock": "Orologio", "t_alarm": "Sveglia", "t_timer": "Timer", "b_lap": "Giro", "b_start": "Avvia", "b_stop": "Ferma", "b_reset": "Azzera", "a_done": "Fine", "a_bio": "Jake Keane è un mentalista, ricercatore dell'esoterico e consulente di spettacolo con sede nel Regno Unito. Unendo sottigliezza psicologica, ricerca occulta storica e narrazione teatrale, fa da consulente a creativi in tutto il mondo e produce materiale originale per artisti e menti curiose.", "a_tutorial": "GUARDA IL TUTORIAL", "a_soon": "in arrivo", "a_products": "ALTRI PRODOTTI", "a_membership": "DIVENTA MEMBRO", "a_podcast": "PODCAST DI TAROCCHI", "s_title": "Impostazioni", "s_skin": "Aspetto", "s_iosstyle": "Stile iOS", "s_iosstyle_sub": "Classico o la nuova barra fluttuante", "s_classic": "Classico", "s_latest": "Recente", "s_opening": "Apertura", "s_setword": "Imposta parola", "s_setword_sub": "La parola o il nome che il cronometro rivelerà", "s_ph_word": "parola", "s_skip": "Salta la schermata iniziale", "s_skip_sub": "Apre direttamente il cronometro con la parola impostata sopra", "s_reveal": "Rivelazione", "s_delay": "Ritardo prima di rivelare", "s_glitch": "Intensità dell'effetto", "s_subtle": "Lieve", "s_normal": "Normale", "s_heavy": "Forte", "s_force": "Forza le ultime due cifre", "s_two": "Forzatura a due cifre", "s_two_sub": "Si ferma su un tempo le cui ultime due cifre sono le tue", "s_twodigits": "Le due cifre", "s_onstop": "All'arresto", "s_onstop_sub": "Mostra solo il numero forzato, oppure forza il numero e poi rivela anche la parola", "s_number": "Numero", "s_andword": "E parola", "s_position": "Posizione", "s_time": "Tempo", "s_navbar": "Barra", "s_up": "Su", "s_down": "Giù", "s_preview": "Anteprima dal vivo", "s_language": "Lingua", "ig_title": "Aggiungi a Home", "ig_lede": "Stopword si apre a schermo intero dalla tua schermata Home, senza barre del browser che lo tradiscano. Installalo una volta, poi aprilo dall'icona.", "ig_ios1": "Tocca l'icona Condividi in Safari.", "ig_ios2": "Scegli Aggiungi a Home.", "ig_ios3": "Tocca Aggiungi, poi aprilo dall'icona.", "ig_and1": "Tocca il menu in Chrome.", "ig_and2": "Scegli Installa app o Aggiungi a schermata Home.", "ig_and3": "Conferma, poi aprilo dall'icona.", "ig_generic": "Apri questa pagina sul telefono con Safari o Chrome, poi aggiungila alla schermata Home.", "ig_continue": "Continua nel browser", "s_androidstyle": "Stile Android", "s_androidstyle_sub": "Grigio standard o un look Samsung nero", "s_grey": "Grigio", "s_black": "Nero"}, "pt": {"m_h1": "Revele qualquer palavra", "m_sub": "Digite uma palavra, entregue um cronómetro comum e pare quando quiser. O tempo transforma-se na palavra.", "m_field": "Palavra ou nome", "m_open": "Abrir cronómetro", "m_hint": "Defina uma palavra nos Ajustes para saltar este ecrã.", "m_dev": "Desenvolvido por Jake Keane", "t_world": "Relógio mundial", "t_alarms": "Alarmes", "t_stopwatch": "Cronómetro", "t_timers": "Temporizadores", "t_clock": "Relógio", "t_alarm": "Alarme", "t_timer": "Temporizador", "b_lap": "Volta", "b_start": "Iniciar", "b_stop": "Parar", "b_reset": "Repor", "a_done": "Concluído", "a_bio": "Jake Keane é mentalista, investigador do esotérico e consultor de espetáculos radicado no Reino Unido. Combinando subtileza psicológica, investigação oculta histórica e narrativa teatral, orienta criadores em todo o mundo e produz material original para artistas e mentes curiosas.", "a_tutorial": "VER TUTORIAL", "a_soon": "em breve", "a_products": "MAIS PRODUTOS", "a_membership": "TORNAR-SE MEMBRO", "a_podcast": "PODCAST DE TARÔ", "s_title": "Ajustes", "s_skin": "Aparência", "s_iosstyle": "Estilo iOS", "s_iosstyle_sub": "Clássico ou a nova barra flutuante", "s_classic": "Clássico", "s_latest": "Recente", "s_opening": "Abertura", "s_setword": "Definir palavra", "s_setword_sub": "A palavra ou nome que o cronómetro vai revelar", "s_ph_word": "palavra", "s_skip": "Saltar o ecrã inicial", "s_skip_sub": "Abre direto ao cronómetro com a palavra definida acima", "s_reveal": "Revelação", "s_delay": "Atraso antes de revelar", "s_glitch": "Intensidade do efeito", "s_subtle": "Subtil", "s_normal": "Normal", "s_heavy": "Forte", "s_force": "Forçar os dois últimos dígitos", "s_two": "Forçagem de dois dígitos", "s_two_sub": "Para num tempo cujos dois últimos dígitos são os seus", "s_twodigits": "Os dois dígitos", "s_onstop": "Ao parar", "s_onstop_sub": "Mostra só o número forçado, ou força o número e depois revela também a palavra", "s_number": "Número", "s_andword": "E palavra", "s_position": "Posição", "s_time": "Tempo", "s_navbar": "Barra", "s_up": "Cima", "s_down": "Baixo", "s_preview": "Pré-visualização", "s_language": "Idioma", "ig_title": "Adicionar ao ecrã principal", "ig_lede": "O Stopword abre em ecrã inteiro a partir do ecrã principal, sem barras do navegador a denunciá-lo. Instale uma vez e abra pelo ícone.", "ig_ios1": "Toque no ícone Partilhar no Safari.", "ig_ios2": "Escolha Adicionar ao ecrã principal.", "ig_ios3": "Toque em Adicionar e abra pelo ícone.", "ig_and1": "Toque no menu no Chrome.", "ig_and2": "Escolha Instalar app ou Adicionar ao ecrã principal.", "ig_and3": "Confirme e abra pelo ícone.", "ig_generic": "Abra esta página no telemóvel com o Safari ou o Chrome e adicione ao ecrã principal.", "ig_continue": "Continuar no navegador", "s_androidstyle": "Estilo Android", "s_androidstyle_sub": "Cinzento padrão, ou um visual Samsung preto", "s_grey": "Cinzento", "s_black": "Preto"}, "nl": {"m_h1": "Onthul elk woord", "m_sub": "Typ een woord, geef een gewone stopwatch door en stop hem wanneer je wilt. De tijd wordt het woord.", "m_field": "Woord of naam", "m_open": "Stopwatch openen", "m_hint": "Stel een woord in bij Instellingen om dit scherm over te slaan.", "m_dev": "Ontwikkeld door Jake Keane", "t_world": "Wereldklok", "t_alarms": "Wekkers", "t_stopwatch": "Stopwatch", "t_timers": "Timers", "t_clock": "Klok", "t_alarm": "Wekker", "t_timer": "Timer", "b_lap": "Ronde", "b_start": "Start", "b_stop": "Stop", "b_reset": "Herstel", "a_done": "Gereed", "a_bio": "Jake Keane is mentalist, onderzoeker van het esoterische en podiumadviseur, gevestigd in het Verenigd Koninkrijk. Hij combineert psychologische subtiliteit, historisch occult onderzoek en theatraal vertellen, adviseert makers wereldwijd en maakt origineel materiaal voor artiesten en nieuwsgierige geesten.", "a_tutorial": "BEKIJK TUTORIAL", "a_soon": "binnenkort", "a_products": "MEER PRODUCTEN", "a_membership": "WORD LID", "a_podcast": "TAROT-PODCAST", "s_title": "Instellingen", "s_skin": "Uiterlijk", "s_iosstyle": "iOS-stijl", "s_iosstyle_sub": "Klassiek of de nieuwste zwevende balk", "s_classic": "Klassiek", "s_latest": "Nieuwste", "s_opening": "Openen", "s_setword": "Woord instellen", "s_setword_sub": "Het woord of de naam die de stopwatch onthult", "s_ph_word": "woord", "s_skip": "Invoerscherm overslaan", "s_skip_sub": "Opent direct de stopwatch met het hierboven ingestelde woord", "s_reveal": "Onthulling", "s_delay": "Vertraging voor de onthulling", "s_glitch": "Glitch-intensiteit", "s_subtle": "Subtiel", "s_normal": "Normaal", "s_heavy": "Sterk", "s_force": "Laatste twee cijfers forceren", "s_two": "Twee-cijfer-force", "s_two_sub": "Stopt op een tijd waarvan de laatste twee cijfers de jouwe zijn", "s_twodigits": "De twee cijfers", "s_onstop": "Bij stoppen", "s_onstop_sub": "Toon alleen het geforceerde getal, of forceer het getal en onthul daarna ook het woord", "s_number": "Getal", "s_andword": "En woord", "s_position": "Positie", "s_time": "Tijd", "s_navbar": "Balk", "s_up": "Omhoog", "s_down": "Omlaag", "s_preview": "Live voorbeeld", "s_language": "Taal", "ig_title": "Zet op beginscherm", "ig_lede": "Stopword draait schermvullend vanaf je beginscherm, zonder browserbalken die het verraden. Installeer het één keer en open het via het icoon.", "ig_ios1": "Tik op het deel-icoon in Safari.", "ig_ios2": "Kies Zet op beginscherm.", "ig_ios3": "Tik op Voeg toe en open via het icoon.", "ig_and1": "Tik op het menu in Chrome.", "ig_and2": "Kies App installeren of Toevoegen aan startscherm.", "ig_and3": "Bevestig en open via het icoon.", "ig_generic": "Open deze pagina op je telefoon in Safari of Chrome en zet hem op je beginscherm.", "ig_continue": "Doorgaan in browser", "s_androidstyle": "Android-stijl", "s_androidstyle_sub": "Standaard grijs, of een zwarte Samsung-stijl", "s_grey": "Grijs", "s_black": "Zwart"}, "ru": {"m_h1": "Раскройте любое слово", "m_sub": "Введите слово, передайте обычный секундомер и остановите его когда захотите. Время превращается в слово.", "m_field": "Слово или имя", "m_open": "Открыть секундомер", "m_hint": "Задайте слово в Настройках, чтобы пропустить этот экран.", "m_dev": "Разработано Jake Keane", "t_world": "Мировые часы", "t_alarms": "Будильник", "t_stopwatch": "Секундомер", "t_timers": "Таймеры", "t_clock": "Часы", "t_alarm": "Будильник", "t_timer": "Таймер", "b_lap": "Круг", "b_start": "Старт", "b_stop": "Стоп", "b_reset": "Сброс", "a_done": "Готово", "a_bio": "Jake Keane — менталист, исследователь эзотерики и консультант по перформансу из Великобритании. Сочетая тонкую психологию, историческое оккультное исследование и театральное повествование, он консультирует авторов по всему миру и создаёт оригинальный материал для артистов и любознательных умов.", "a_tutorial": "СМОТРЕТЬ УРОК", "a_soon": "скоро", "a_products": "ЕЩЁ ПРОДУКТЫ", "a_membership": "СТАТЬ УЧАСТНИКОМ", "a_podcast": "ПОДКАСТ О ТАРО", "s_title": "Настройки", "s_skin": "Оформление", "s_iosstyle": "Стиль iOS", "s_iosstyle_sub": "Классическая или новая плавающая панель", "s_classic": "Классика", "s_latest": "Новая", "s_opening": "Открытие", "s_setword": "Задать слово", "s_setword_sub": "Слово или имя, которое раскроет секундомер", "s_ph_word": "слово", "s_skip": "Пропустить экран ввода", "s_skip_sub": "Открывает секундомер сразу со словом, заданным выше", "s_reveal": "Раскрытие", "s_delay": "Задержка до раскрытия", "s_glitch": "Интенсивность глитча", "s_subtle": "Слабо", "s_normal": "Средне", "s_heavy": "Сильно", "s_force": "Форсировать две последние цифры", "s_two": "Форс двух цифр", "s_two_sub": "Останавливается на времени, две последние цифры которого — ваши", "s_twodigits": "Две цифры", "s_onstop": "При остановке", "s_onstop_sub": "Показать только заданное число или задать число, а затем раскрыть и слово", "s_number": "Число", "s_andword": "И слово", "s_position": "Положение", "s_time": "Время", "s_navbar": "Панель", "s_up": "Вверх", "s_down": "Вниз", "s_preview": "Предпросмотр", "s_language": "Язык", "ig_title": "На экран «Домой»", "ig_lede": "Stopword открывается на весь экран с домашнего экрана, без панелей браузера, которые его выдают. Установите один раз и открывайте по значку.", "ig_ios1": "Нажмите значок «Поделиться» в Safari.", "ig_ios2": "Выберите «На экран Домой».", "ig_ios3": "Нажмите «Добавить» и откройте по значку.", "ig_and1": "Нажмите меню в Chrome.", "ig_and2": "Выберите «Установить приложение» или «Добавить на главный экран».", "ig_and3": "Подтвердите и откройте по значку.", "ig_generic": "Откройте эту страницу на телефоне в Safari или Chrome и добавьте её на домашний экран.", "ig_continue": "Продолжить в браузере", "s_androidstyle": "Стиль Android", "s_androidstyle_sub": "Стандартный серый или чёрный стиль Samsung", "s_grey": "Серый", "s_black": "Чёрный"}, "ja": {"m_h1": "どんな言葉も当てる", "m_sub": "言葉を入力し、ふつうのストップウォッチとして渡します。好きなところで止めると、時間がその言葉に変わります。", "m_field": "言葉または名前", "m_open": "ストップウォッチを開く", "m_hint": "設定で言葉を決めると、この画面を省略できます。", "m_dev": "開発：Jake Keane", "t_world": "世界時計", "t_alarms": "アラーム", "t_stopwatch": "ストップウォッチ", "t_timers": "タイマー", "t_clock": "時計", "t_alarm": "アラーム", "t_timer": "タイマー", "b_lap": "ラップ", "b_start": "開始", "b_stop": "停止", "b_reset": "リセット", "a_done": "完了", "a_bio": "Jake Keane は英国を拠点とするメンタリスト、秘教研究家、パフォーマンス・コンサルタントです。心理の機微、歴史的なオカルト研究、演劇的な語りを融合し、世界中のクリエイターを支援しながら、演者と探究心あふれる人々のためのオリジナル作品を生み出しています。", "a_tutorial": "チュートリアルを見る", "a_soon": "近日公開", "a_products": "他の製品", "a_membership": "メンバーになる", "a_podcast": "タロット・ポッドキャスト", "s_title": "設定", "s_skin": "外観", "s_iosstyle": "iOS スタイル", "s_iosstyle_sub": "クラシック、または最新のフローティングバー", "s_classic": "クラシック", "s_latest": "最新", "s_opening": "起動", "s_setword": "言葉を設定", "s_setword_sub": "ストップウォッチが当てる言葉または名前", "s_ph_word": "言葉", "s_skip": "入力画面を省略", "s_skip_sub": "上で設定した言葉ですぐにストップウォッチを開く", "s_reveal": "演出", "s_delay": "当てるまでの遅延", "s_glitch": "グリッチの強さ", "s_subtle": "弱", "s_normal": "標準", "s_heavy": "強", "s_force": "下2桁を強制", "s_two": "2桁フォース", "s_two_sub": "下2桁があなたの数字になる時間で止まります", "s_twodigits": "2桁の数字", "s_onstop": "停止時", "s_onstop_sub": "強制した数字だけを表示するか、数字を出してから言葉も当てます", "s_number": "数字", "s_andword": "数字と言葉", "s_position": "位置", "s_time": "時間", "s_navbar": "バー", "s_up": "上へ", "s_down": "下へ", "s_preview": "プレビュー", "s_language": "言語", "ig_title": "ホーム画面に追加", "ig_lede": "Stopword はホーム画面から全画面で開き、ブラウザのバーが出ません。一度追加すれば、アイコンから開けます。", "ig_ios1": "Safari で共有アイコンをタップ。", "ig_ios2": "「ホーム画面に追加」を選択。", "ig_ios3": "「追加」をタップし、アイコンから開きます。", "ig_and1": "Chrome でメニューをタップ。", "ig_and2": "「アプリをインストール」または「ホーム画面に追加」を選択。", "ig_and3": "確認して、アイコンから開きます。", "ig_generic": "このページをスマホの Safari か Chrome で開き、ホーム画面に追加してください。", "ig_continue": "ブラウザで続ける", "s_androidstyle": "Android スタイル", "s_androidstyle_sub": "標準のグレー、または Samsung 風の黒", "s_grey": "グレー", "s_black": "ブラック"}, "zh": {"m_h1": "揭示任何词语", "m_sub": "输入一个词，把它当作普通秒表递过去，随时停下。时间就会变成那个词。", "m_field": "词语或名字", "m_open": "打开秒表", "m_hint": "在设置中设定一个词，即可跳过此界面。", "m_dev": "由 Jake Keane 开发", "t_world": "世界时钟", "t_alarms": "闹钟", "t_stopwatch": "秒表", "t_timers": "计时器", "t_clock": "时钟", "t_alarm": "闹钟", "t_timer": "计时器", "b_lap": "计次", "b_start": "开始", "b_stop": "停止", "b_reset": "重置", "a_done": "完成", "a_bio": "Jake Keane 是常驻英国的读心师、神秘学研究者与演出顾问。他融合细腻的心理技巧、历史神秘学研究与戏剧化叙事，为全球创作者提供咨询，并为表演者和好奇的心灵创作原创素材。", "a_tutorial": "观看教程", "a_soon": "敬请期待", "a_products": "更多产品", "a_membership": "加入会员", "a_podcast": "塔罗播客", "s_title": "设置", "s_skin": "外观", "s_iosstyle": "iOS 样式", "s_iosstyle_sub": "经典，或最新的悬浮标签栏", "s_classic": "经典", "s_latest": "最新", "s_opening": "启动", "s_setword": "设定词语", "s_setword_sub": "秒表将揭示的词语或名字", "s_ph_word": "词语", "s_skip": "跳过输入界面", "s_skip_sub": "用上方设定的词直接打开秒表", "s_reveal": "揭示", "s_delay": "揭示前的延迟", "s_glitch": "故障强度", "s_subtle": "轻微", "s_normal": "正常", "s_heavy": "强烈", "s_force": "强制最后两位数字", "s_two": "两位数强制", "s_two_sub": "停在最后两位数字为你指定值的时间", "s_twodigits": "两位数字", "s_onstop": "停止时", "s_onstop_sub": "只显示强制的数字，或先强制数字再揭示词语", "s_number": "数字", "s_andword": "数字加词语", "s_position": "位置", "s_time": "时间", "s_navbar": "导航栏", "s_up": "上移", "s_down": "下移", "s_preview": "实时预览", "s_language": "语言", "ig_title": "添加到主屏幕", "ig_lede": "Stopword 从主屏幕全屏运行，没有会露馅的浏览器栏。安装一次，之后从图标打开即可。", "ig_ios1": "在 Safari 中点按分享图标。", "ig_ios2": "选择“添加到主屏幕”。", "ig_ios3": "点按“添加”，然后从图标打开。", "ig_and1": "在 Chrome 中点按菜单。", "ig_and2": "选择“安装应用”或“添加到主屏幕”。", "ig_and3": "确认后从图标打开。", "ig_generic": "在手机的 Safari 或 Chrome 中打开此页面，然后添加到主屏幕。", "ig_continue": "在浏览器中继续", "s_androidstyle": "Android 样式", "s_androidstyle_sub": "标准灰色，或三星风格黑色", "s_grey": "灰色", "s_black": "黑色"}, "ko": {"m_h1": "어떤 단어든 알아맞히기", "m_sub": "단어를 입력하고 평범한 스톱워치처럼 건네주세요. 원하는 순간에 멈추면 시간이 그 단어로 바뀝니다.", "m_field": "단어 또는 이름", "m_open": "스톱워치 열기", "m_hint": "설정에서 단어를 지정하면 이 화면을 건너뜁니다.", "m_dev": "개발: Jake Keane", "t_world": "세계 시계", "t_alarms": "알람", "t_stopwatch": "스톱워치", "t_timers": "타이머", "t_clock": "시계", "t_alarm": "알람", "t_timer": "타이머", "b_lap": "랩", "b_start": "시작", "b_stop": "정지", "b_reset": "재설정", "a_done": "완료", "a_bio": "Jake Keane은 영국을 기반으로 활동하는 멘탈리스트이자 밀교 연구가, 공연 컨설턴트입니다. 섬세한 심리 기법과 역사적 오컬트 연구, 극적인 스토리텔링을 결합해 전 세계 창작자들을 자문하며 공연자와 호기심 많은 이들을 위한 오리지널 자료를 만듭니다.", "a_tutorial": "튜토리얼 보기", "a_soon": "준비 중", "a_products": "더 많은 제품", "a_membership": "멤버십 가입", "a_podcast": "타로 팟캐스트", "s_title": "설정", "s_skin": "디자인", "s_iosstyle": "iOS 스타일", "s_iosstyle_sub": "클래식 또는 최신 플로팅 탭바", "s_classic": "클래식", "s_latest": "최신", "s_opening": "열기", "s_setword": "단어 지정", "s_setword_sub": "스톱워치가 알아맞힐 단어 또는 이름", "s_ph_word": "단어", "s_skip": "입력 화면 건너뛰기", "s_skip_sub": "위에서 지정한 단어로 스톱워치를 바로 엽니다", "s_reveal": "공개", "s_delay": "공개까지 지연", "s_glitch": "글리치 강도", "s_subtle": "약하게", "s_normal": "보통", "s_heavy": "강하게", "s_force": "마지막 두 자리 강제", "s_two": "두 자리 포스", "s_two_sub": "마지막 두 자리가 당신의 숫자인 시간에서 멈춥니다", "s_twodigits": "두 자리 숫자", "s_onstop": "정지 시", "s_onstop_sub": "강제한 숫자만 표시하거나, 숫자를 낸 뒤 단어까지 공개", "s_number": "숫자", "s_andword": "숫자와 단어", "s_position": "위치", "s_time": "시간", "s_navbar": "탭바", "s_up": "위로", "s_down": "아래로", "s_preview": "실시간 미리보기", "s_language": "언어", "ig_title": "홈 화면에 추가", "ig_lede": "Stopword는 홈 화면에서 전체 화면으로 실행되어 정체를 드러내는 브라우저 막대가 없습니다. 한 번 추가한 뒤 아이콘에서 여세요.", "ig_ios1": "Safari에서 공유 아이콘을 누르세요.", "ig_ios2": "‘홈 화면에 추가’를 선택하세요.", "ig_ios3": "‘추가’를 누른 뒤 아이콘에서 여세요.", "ig_and1": "Chrome에서 메뉴를 누르세요.", "ig_and2": "‘앱 설치’ 또는 ‘홈 화면에 추가’를 선택하세요.", "ig_and3": "확인한 뒤 아이콘에서 여세요.", "ig_generic": "휴대폰의 Safari나 Chrome에서 이 페이지를 열고 홈 화면에 추가하세요.", "ig_continue": "브라우저에서 계속", "s_androidstyle": "Android 스타일", "s_androidstyle_sub": "기본 회색 또는 삼성 스타일 검정", "s_grey": "회색", "s_black": "검정"}, "ar": {"m_h1": "اكشف أي كلمة", "m_sub": "اكتب كلمة، ثم سلّم الهاتف كأنه ساعة إيقاف عادية، وأوقفها متى شئت. يتحول الوقت إلى الكلمة.", "m_field": "كلمة أو اسم", "m_open": "افتح ساعة الإيقاف", "m_hint": "عيّن كلمة في الإعدادات لتخطي هذه الشاشة.", "m_dev": "تطوير Jake Keane", "t_world": "الساعة العالمية", "t_alarms": "المنبهات", "t_stopwatch": "ساعة الإيقاف", "t_timers": "المؤقتات", "t_clock": "الساعة", "t_alarm": "المنبه", "t_timer": "المؤقت", "b_lap": "لفة", "b_start": "ابدأ", "b_stop": "إيقاف", "b_reset": "تصفير", "a_done": "تم", "a_bio": "جيك كين هو قارئ أفكار وباحث في الخفايا ومستشار عروض مقيم في المملكة المتحدة. يمزج بين براعة نفسية دقيقة وبحث تاريخي في العلوم الخفية وسرد مسرحي، فيقدّم الاستشارات لصنّاع المحتوى حول العالم وينتج مواد أصلية للفنانين والعقول الفضولية.", "a_tutorial": "شاهد الشرح", "a_soon": "قريبًا", "a_products": "مزيد من المنتجات", "a_membership": "انضم للعضوية", "a_podcast": "بودكاست التاروت", "s_title": "الإعدادات", "s_skin": "المظهر", "s_iosstyle": "نمط iOS", "s_iosstyle_sub": "كلاسيكي أو الشريط العائم الأحدث", "s_classic": "كلاسيكي", "s_latest": "الأحدث", "s_opening": "البدء", "s_setword": "تعيين الكلمة", "s_setword_sub": "الكلمة أو الاسم الذي ستكشفه ساعة الإيقاف", "s_ph_word": "كلمة", "s_skip": "تخطي شاشة الإدخال", "s_skip_sub": "يفتح ساعة الإيقاف مباشرة بالكلمة المعيّنة أعلاه", "s_reveal": "الكشف", "s_delay": "التأخير قبل الكشف", "s_glitch": "شدة التشويش", "s_subtle": "خفيف", "s_normal": "عادي", "s_heavy": "قوي", "s_force": "فرض آخر رقمين", "s_two": "فرض رقمين", "s_two_sub": "يتوقف عند وقت آخر رقمين فيه هما رقماك", "s_twodigits": "الرقمان", "s_onstop": "عند التوقف", "s_onstop_sub": "اعرض الرقم المفروض فقط، أو افرض الرقم ثم اكشف الكلمة أيضًا", "s_number": "رقم", "s_andword": "والكلمة", "s_position": "الموضع", "s_time": "الوقت", "s_navbar": "الشريط", "s_up": "أعلى", "s_down": "أسفل", "s_preview": "معاينة حية", "s_language": "اللغة", "ig_title": "أضف إلى الشاشة الرئيسية", "ig_lede": "يعمل Stopword بملء الشاشة من شاشتك الرئيسية دون أشرطة متصفح تفضحه. ثبّته مرة واحدة ثم افتحه من الأيقونة.", "ig_ios1": "المس أيقونة المشاركة في Safari.", "ig_ios2": "اختر «أضف إلى الشاشة الرئيسية».", "ig_ios3": "المس «إضافة» ثم افتحه من الأيقونة.", "ig_and1": "المس القائمة في Chrome.", "ig_and2": "اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».", "ig_and3": "أكّد ثم افتحه من الأيقونة.", "ig_generic": "افتح هذه الصفحة على هاتفك في Safari أو Chrome ثم أضفها إلى شاشتك الرئيسية.", "ig_continue": "المتابعة في المتصفح", "s_androidstyle": "نمط أندرويد", "s_androidstyle_sub": "الرمادي القياسي أو مظهر سامسونج الأسود", "s_grey": "رمادي", "s_black": "أسود"}, "he": {"m_h1": "גלה כל מילה", "m_sub": "הקלד מילה, מסור שעון עצר רגיל, ועצור מתי שתרצה. הזמן הופך למילה.", "m_field": "מילה או שם", "m_open": "פתח שעון עצר", "m_hint": "הגדר מילה בהגדרות כדי לדלג על מסך זה.", "m_dev": "פותח על ידי Jake Keane", "t_world": "שעון עולמי", "t_alarms": "התראות", "t_stopwatch": "שעון עצר", "t_timers": "טיימרים", "t_clock": "שעון", "t_alarm": "התראה", "t_timer": "טיימר", "b_lap": "הקפה", "b_start": "התחל", "b_stop": "עצור", "b_reset": "אפס", "a_done": "סיום", "a_bio": "ג'ייק קין הוא מנטליסט, חוקר אזוטריקה ויועץ מופעים שבסיסו בבריטניה. בשילוב של עדינות פסיכולוגית, מחקר נסתר היסטורי וסיפור תיאטרלי, הוא מייעץ ליוצרים ברחבי העולם ומפיק חומר מקורי עבור מבצעים ונפשות סקרניות.", "a_tutorial": "צפה במדריך", "a_soon": "בקרוב", "a_products": "מוצרים נוספים", "a_membership": "הצטרף כחבר", "a_podcast": "פודקאסט טארוט", "s_title": "הגדרות", "s_skin": "מראה", "s_iosstyle": "סגנון iOS", "s_iosstyle_sub": "קלאסי או הסרגל הצף החדש", "s_classic": "קלאסי", "s_latest": "חדש", "s_opening": "פתיחה", "s_setword": "הגדר מילה", "s_setword_sub": "המילה או השם שהשעון יגלה", "s_ph_word": "מילה", "s_skip": "דלג על מסך הקלט", "s_skip_sub": "פותח ישר את שעון העצר עם המילה שהוגדרה למעלה", "s_reveal": "גילוי", "s_delay": "השהיה לפני הגילוי", "s_glitch": "עוצמת ההפרעה", "s_subtle": "עדין", "s_normal": "רגיל", "s_heavy": "חזק", "s_force": "אלץ את שתי הספרות האחרונות", "s_two": "אילוץ שתי ספרות", "s_two_sub": "עוצר בזמן ששתי הספרות האחרונות בו הן שלך", "s_twodigits": "שתי הספרות", "s_onstop": "בעצירה", "s_onstop_sub": "הצג רק את המספר המאולץ, או אלץ את המספר ואז גלה גם את המילה", "s_number": "מספר", "s_andword": "וגם מילה", "s_position": "מיקום", "s_time": "זמן", "s_navbar": "סרגל", "s_up": "למעלה", "s_down": "למטה", "s_preview": "תצוגה חיה", "s_language": "שפה", "ig_title": "הוסף למסך הבית", "ig_lede": "Stopword פועל במסך מלא ממסך הבית, בלי סרגלי דפדפן שמסגירים אותו. התקן פעם אחת ואז פתח מהסמל.", "ig_ios1": "הקש על סמל השיתוף ב-Safari.", "ig_ios2": "בחר «הוסף למסך הבית».", "ig_ios3": "הקש «הוסף» ואז פתח מהסמל.", "ig_and1": "הקש על התפריט ב-Chrome.", "ig_and2": "בחר «התקן אפליקציה» או «הוסף למסך הבית».", "ig_and3": "אשר ואז פתח מהסמל.", "ig_generic": "פתח דף זה בטלפון ב-Safari או ב-Chrome ואז הוסף אותו למסך הבית.", "ig_continue": "המשך בדפדפן", "s_androidstyle": "סגנון אנדרואיד", "s_androidstyle_sub": "אפור רגיל, או מראה שחור בסגנון סמסונג", "s_grey": "אפור", "s_black": "שחור"}};
+function t(k){ const d=T[S.lang]; return (d&&d[k]!=null)?d[k]:(T.en[k]!=null?T.en[k]:k); }
+function applyLang(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent=t(el.getAttribute('data-i18n')); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{ el.setAttribute('placeholder', t(el.getAttribute('data-i18n-ph'))); });
+  device.setAttribute('dir', (S.lang==='ar'||S.lang==='he') ? 'rtl':'ltr');
+  clSetButtons();
+  if(device.classList.contains('clock-open')) clRenderLaps();
+}
+
+/* ---------------- constants ---------------- */
+const LEET={A:'4',B:'8',E:'3',G:'6',I:'1',O:'0',S:'5',T:'7',Z:'2'};
+const CL_GLITCH={ subtle:{ms:700, shake:2, flips:1, rgb:0}, normal:{ms:1400, shake:4, flips:2, rgb:1}, heavy:{ms:2400, shake:8, flips:4, rgb:2} };
+function leetWord(w){ return Array.from(String(w||'').toUpperCase().replace(/\s+/g,'')).map(c=>LEET[c]||c).join(''); }
+function clockGroups(txt){ const arr=Array.from(txt); const n=arr.length; if(!n) return ['00','00','00']; const a=Math.ceil(n/3), b=Math.ceil((n-a)/2); return [arr.slice(0,a).join(''), arr.slice(a,a+b).join(''), arr.slice(a+b).join('')]; }
+function isRTL(s){ return /[\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\u07C0-\u07FF\u08A0-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/.test(String(s||'')); }
+
+/* ---------------- stopwatch engine ---------------- */
+let clRun=false, clStart=0, clElapsed=0, clTick=null, clLaps=[], clLapBase=0, clFrozen=false;
+let clRevealT=null, clGlitchT=null, clUnfreezeT=null;
+let clockWord='MAGIC', clockForce='';
+/* after a reveal settles, hand the stopwatch back so Reset / Start behave normally again */
+function scheduleUnfreeze(ms){ clearTimeout(clUnfreezeT); clUnfreezeT=setTimeout(()=>{ clFrozen=false; clSetButtons(); }, ms); }
+
+function clFmt(ms){ const m=Math.floor(ms/60000), s=Math.floor((ms%60000)/1000), c=Math.floor((ms%1000)/10);
+  return [String(m).padStart(2,'0'), String(s).padStart(2,'0'), String(c).padStart(2,'0')]; }
+function clFit(){
+  const el=$('#cl-time'), inner=$('#cl-inner'); if(!el||!inner) return;
+  const avail=(device.clientWidth||390)-40;
+  let size=Math.round((device.clientWidth||390)*0.213);
+  el.style.fontSize=size+'px';
+  let guard=0;
+  while(inner.getBoundingClientRect().width>avail && size>20 && guard++<60){ size-=2; el.style.fontSize=size+'px'; }
+}
+function clPaint(g){ $('#cl-g1').textContent=g[0]; $('#cl-g2').textContent=g[1]; $('#cl-g3').textContent=g[2]; clFit(); }
+function clLiveLap(){ const el=$('#cl-live'); if(!el) return; const now=clElapsed+(clRun?Date.now()-clStart:0); const g=clFmt(Math.max(0,now-clLapBase)); el.textContent=g[0]+':'+g[1]+'.'+g[2]; }
+function clRender(){ clPaint(clFmt(clElapsed + (clRun ? Date.now()-clStart : 0))); if(!clFrozen) clLiveLap(); }
+function clSetButtons(){
+  const lap=$('#cl-lap'), st=$('#cl-start');
+  if(clRun){ lap.textContent=t('b_lap'); lap.classList.remove('dim'); st.textContent=t('b_stop'); st.classList.remove('go'); st.classList.add('stop'); }
+  else { lap.textContent = clElapsed>0 ? t('b_reset') : t('b_lap'); lap.classList.toggle('dim', clElapsed===0); st.textContent=t('b_start'); st.classList.add('go'); st.classList.remove('stop'); }
+  const fab=$('#cl-fab-a');
+  if(fab){ fab.classList.toggle('run', clRun);
+    fab.innerHTML = clRun ? '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>'
+                          : '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>'; }
+  const lapA=$('#cl-lap-a'); if(lapA) lapA.textContent=t('b_lap');
+}
+function clRenderLaps(){
+  const rows=[]; const L=t('b_lap');
+  if(clRun || clElapsed>0) rows.push('<div class="cl-lap live"><span>'+L+' '+(clLaps.length+1)+'</span><span id="cl-live">00:00.00</span></div>');
+  let mn=Infinity, mx=-Infinity; const showC=clLaps.length>=3;
+  if(showC){ clLaps.forEach(ms=>{ if(ms<mn)mn=ms; if(ms>mx)mx=ms; }); }
+  const doC=showC && mn!==mx;
+  clLaps.forEach((ms,i)=>{ const g=clFmt(ms); let c='cl-lap'; if(doC){ if(ms===mn)c+=' fast'; else if(ms===mx)c+=' slow'; } rows.push('<div class="'+c+'"><span>'+L+' '+(clLaps.length-i)+'</span><span>'+g[0]+':'+g[1]+'.'+g[2]+'</span></div>'); });
+  $('#cl-laps').innerHTML=rows.join(''); clLiveLap();
+}
+function clockReset(){
+  clearInterval(clTick); clTick=null; clearTimeout(clRevealT); clearTimeout(clGlitchT); clearTimeout(clUnfreezeT);
+  clRun=false; clElapsed=0; clLaps=[]; clLapBase=0; clFrozen=false;
+  device.classList.remove('cl-invert');
+  $('#cl-time').style.transform=''; $('#cl-time').style.textShadow='';
+  $('#cl-inner').style.direction='ltr';
+  $('#cl-inner').querySelectorAll('em').forEach(e=>e.style.display='');
+  clRenderLaps(); clRender(); clSetButtons();
+}
+function clockLap(){
+  if(clFrozen) return;
+  if(clRun){ const now=clElapsed+(Date.now()-clStart); clLaps.unshift(now-clLapBase); clLapBase=now; clRenderLaps(); }
+  else if(clElapsed>0){ clockReset(); }
+}
+function clockGo(){
+  if(clFrozen) return;
+  if(!clRun){
+    clRun=true; clStart=Date.now();
+    clTick=setInterval(clRender, 31);
+    clSetButtons(); clRenderLaps();
+  } else {
+    clRun=false; clElapsed += Date.now()-clStart;
+    clearInterval(clTick); clTick=null;
+    clRender(); clSetButtons();
+    const wantNumber = S.two;
+    const wantWord = !S.two || S.twoMode==='word';
+    if(wantNumber){
+      const f=(clockForce||S.twoVal||'00').replace(/[^0-9]/g,'').padStart(2,'0').slice(0,2);
+      const g=clFmt(clElapsed); clPaint([g[0],g[1],f]);
+      const live=$('#cl-live'); if(live) live.textContent=live.textContent.replace(/\d\d$/, f);
+      clFrozen=true;
+      if(!wantWord){ scheduleUnfreeze(1600); return; }   /* number only: hand back after a moment */
+    }
+    const d=Math.max(0, Number(S.clockDelay===undefined?6:S.clockDelay))*1000;
+    clearTimeout(clRevealT);
+    clRevealT=setTimeout(clockGlitch, d);   /* word reveal, alone or after the forced number */
+  }
+}
+
+/* ---------------- word reveal ---------------- */
+function paintReveal(leeted, original){
+  const inner=$('#cl-inner'), seps=inner.querySelectorAll('em');
+  if(isRTL(original)){
+    /* one run, right to left, so it reads correctly and Arabic letters still join */
+    inner.style.direction='rtl';
+    seps.forEach(e=>e.style.display='none');
+    $('#cl-g1').textContent=leeted; $('#cl-g2').textContent=''; $('#cl-g3').textContent='';
+  } else {
+    inner.style.direction='ltr';
+    seps.forEach(e=>e.style.display='');
+    const g=clockGroups(leeted);
+    $('#cl-g1').textContent=g[0]; $('#cl-g2').textContent=g[1]; $('#cl-g3').textContent=g[2];
+  }
+  clFit();
+}
+function clockGlitch(){
+  const cfg=CL_GLITCH[S.glitch||'normal']||CL_GLITCH.normal;
+  const word=leetWord(clockWord||S.presetWord||'MAGIC');
+  clFrozen=true;
+  const t0=Date.now();
+  const flipAt=[]; for(let i=0;i<cfg.flips;i++) flipAt.push(Math.round(cfg.ms*(i+1)/(cfg.flips+1)));
+  let nextFlip=0;
+  clearInterval(clTick);
+  clGlitchT=setInterval(()=>{
+    const el2=$('#cl-time');
+    const dt=Date.now()-t0;
+    if(dt>=cfg.ms){
+      clearInterval(clGlitchT); clGlitchT=null;
+      el2.style.transform=''; el2.style.textShadow='';
+      device.classList.remove('cl-invert');
+      paintReveal(word, clockWord);
+      scheduleUnfreeze(1600);   /* hand the stopwatch back a moment after the word lands */
+      return;
+    }
+    const rnd=()=>String(Math.floor(Math.random()*100)).padStart(2,'0');
+    const prog=dt/cfg.ms;
+    if(Math.random()<prog*0.55){ const g=clockGroups(word); clPaint([Math.random()<prog?g[0]:rnd(), Math.random()<prog?g[1]:rnd(), Math.random()<prog?g[2]:rnd()]); }
+    else clPaint([rnd(),rnd(),rnd()]);
+    const s=cfg.shake;
+    el2.style.transform='translate('+((Math.random()*2-1)*s).toFixed(1)+'px,'+((Math.random()*2-1)*s*0.6).toFixed(1)+'px)';
+    if(cfg.rgb){ const o=(Math.random()*2-1)*cfg.rgb*1.6; el2.style.textShadow=o.toFixed(1)+'px 0 rgba(255,0,80,.75), '+(-o).toFixed(1)+'px 0 rgba(0,220,255,.75)'; }
+    if(nextFlip<flipAt.length && dt>=flipAt[nextFlip]){ nextFlip++; device.classList.add('cl-invert'); setTimeout(()=>device.classList.remove('cl-invert'), 90); }
+  }, 50);
+}
+
+/* ---------------- open / exit ---------------- */
+function isFloating(){ return S.skin==='ios' && (S.iosStyle||'latest')==='latest'; }
+function curNavKey(){ return isFloating() ? 'navYLatest' : 'navYFlush'; }
+function applySkin(){
+  device.classList.toggle('skin-android', S.skin==='android');
+  device.classList.toggle('ios-latest', S.skin==='ios' && (S.iosStyle||'latest')==='latest');
+  device.classList.toggle('android-black', S.skin==='android' && (S.androidStyle||'grey')==='black');
+  R.style.setProperty('--nav-y', (S[curNavKey()]||0)+'px');
+}
+function applyClockY(){ R.style.setProperty('--clock-y', (S.clockY||0)+'px'); }
+function openStopwatch(word){
+  clockWord = (word && word.trim()) ? word.trim() : (S.presetWord||'MAGIC');
+  clockForce = (S.twoVal||'').replace(/[^0-9]/g,'').slice(0,2);
+  clockReset();
+  $('#entry').classList.add('hidden');
+  device.classList.add('clock-open');
+  setTimeout(clFit, 60);
+}
+function backToEntry(){
+  clockReset();
+  device.classList.remove('clock-open');
+  $('#entry').classList.remove('hidden');
+  $('#word-in').value = (!S.usePreset && S.presetWord) ? S.presetWord : '';
+}
+
+/* buttons */
+$('#cl-start').addEventListener('click', clockGo);
+$('#cl-lap').addEventListener('click', clockLap);
+$('#cl-fab-a').addEventListener('click', clockGo);
+$('#cl-lap-a').addEventListener('click', clockLap);
+$('#cl-reset-a').addEventListener('click', ()=>{ if(!clRun) clockReset(); });
+
+/* swipe down to leave */
+(function(){
+  const z=$('#cl-swipe'); let y0=null;
+  z.addEventListener('touchstart', e=>{ y0=e.touches[0].clientY; }, {passive:true});
+  z.addEventListener('touchmove', e=>{ if(y0!=null && e.touches[0].clientY-y0>70){ y0=null; backToEntry(); } }, {passive:true});
+  z.addEventListener('touchend', ()=>{ y0=null; }, {passive:true});
+})();
+/* triple tap anywhere except the buttons also exits the performance */
+(function(){
+  let taps=[];
+  $('#clockscreen').addEventListener('click', e=>{
+    if(!device.classList.contains('clock-open')) return;
+    if(e.target.closest('.cl-btn,.cl-abtn,.cl-fab,.cl-tab,.cl-tab-a,.cl-tab-s,#cl-kebab')) return;
+    const now=Date.now(); taps.push(now); taps=taps.filter(t=>now-t<650);
+    if(taps.length>=3){ taps=[]; backToEntry(); }
+  });
+})();
+
+/* ---------------- entry ---------------- */
+$('#word-go').addEventListener('click', ()=>openStopwatch($('#word-in').value));
+$('#word-in').addEventListener('keydown', e=>{ if(e.key==='Enter') openStopwatch($('#word-in').value); });
+$('#entry-gear').addEventListener('click', openSettings);
+$('#entry-about').addEventListener('click', ()=>$('#about').classList.add('show'));
+$('#ab-done').addEventListener('click', ()=>$('#about').classList.remove('show'));
+
+/* ---------------- settings ---------------- */
+function buildSettings(){
+  $('#settings').innerHTML = `
+  <div class="set-top"><h2>${t('s_title')}</h2><div class="set-done" id="set-done">${t('a_done')}</div></div>
+
+  <div class="grp">
+    <div class="lbl">${t('s_skin')}</div>
+    <div class="card">
+      <div class="row"><div class="seg wide" id="seg-skin">
+        <button data-v="ios">iOS</button><button data-v="android">Android</button></div></div>
+      <div class="row" id="row-iosstyle"><div class="rl-wrap"><div class="rlbl">${t('s_iosstyle')}</div><div class="rsub">${t('s_iosstyle_sub')}</div></div>
+        <div class="seg" id="seg-iosstyle"><button data-v="classic">${t('s_classic')}</button><button data-v="latest">${t('s_latest')}</button></div></div>
+      <div class="row" id="row-androidstyle"><div class="rl-wrap"><div class="rlbl">${t('s_androidstyle')}</div><div class="rsub">${t('s_androidstyle_sub')}</div></div>
+        <div class="seg" id="seg-androidstyle"><button data-v="grey">${t('s_grey')}</button><button data-v="black">${t('s_black')}</button></div></div>
+    </div>
+  </div>
+
+  <div class="grp">
+    <div class="lbl">${t('s_opening')}</div>
+    <div class="card">
+      <div class="row"><div class="rl-wrap"><div class="rlbl">${t('s_setword')}</div><div class="rsub">${t('s_setword_sub')}</div></div>
+        <input type="text" id="preset-in" class="short" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="${t('s_ph_word')}"></div>
+      <div class="row"><div class="rl-wrap"><div class="rlbl">${t('s_skip')}</div><div class="rsub">${t('s_skip_sub')}</div></div>
+        <div class="tgl" id="tgl-preset"></div></div>
+    </div>
+  </div>
+
+  <div class="grp">
+    <div class="lbl">${t('s_reveal')}</div>
+    <div class="card">
+      <div class="slrow"><div class="top"><span>${t('s_delay')}</span><b id="delay-v">6.0s</b></div>
+        <input type="range" class="range" id="delay" min="0" max="300" step="5" value="60"></div>
+      <div class="row"><div class="rl-wrap"><div class="rlbl">${t('s_glitch')}</div></div>
+        <div class="seg" id="seg-glitch"><button data-v="subtle">${t('s_subtle')}</button><button data-v="normal">${t('s_normal')}</button><button data-v="heavy">${t('s_heavy')}</button></div></div>
+    </div>
+  </div>
+
+  <div class="grp">
+    <div class="lbl">${t('s_force')}</div>
+    <div class="card">
+      <div class="row"><div class="rl-wrap"><div class="rlbl">${t('s_two')}</div><div class="rsub">${t('s_two_sub')}</div></div>
+        <div class="tgl" id="tgl-two"></div></div>
+      <div class="row" id="row-twoval"><div class="rl-wrap"><div class="rlbl">${t('s_twodigits')}</div></div>
+        <input type="text" id="twoval-in" class="short" inputmode="numeric" maxlength="2" placeholder="00"></div>
+      <div class="row" id="row-twomode"><div class="rl-wrap"><div class="rlbl">${t('s_onstop')}</div><div class="rsub">${t('s_onstop_sub')}</div></div>
+        <div class="seg" id="seg-twomode"><button data-v="solo">${t('s_number')}</button><button data-v="word">${t('s_andword')}</button></div></div>
+    </div>
+  </div>
+
+  <div class="grp">
+    <div class="lbl">${t('s_position')}</div>
+    <div class="card">
+      <div class="slrow"><div class="top"><span>${t('s_time')}</span></div><div class="nudge">
+        <button id="ty-up">${t('s_up')}</button><button id="ty-down">${t('s_down')}</button><button id="ty-reset">${t('b_reset')}</button></div></div>
+      <div class="slrow" id="row-navpos"><div class="top"><span>${t('s_navbar')}</span></div><div class="nudge">
+        <button id="ny-up">${t('s_up')}</button><button id="ny-down">${t('s_down')}</button><button id="ny-reset">${t('b_reset')}</button></div></div>
+    </div>
+    <div class="pvwrap">
+      <div class="pv" id="pv">
+        <div class="pv-time">00:00.00</div>
+        <div class="pv-ctrl"><span class="pv-b lap">Lap</span><span class="pv-mini"></span><span class="pv-fab"></span><span class="pv-b go">Go</span></div>
+        <div class="pv-tabs"><i></i><i></i><i class="sel"></i><i></i></div>
+      </div>
+      <div class="pv-cap">${t('s_preview')}</div>
+    </div>
+  </div>
+
+  <div class="grp">
+    <div class="lbl">${t('s_language')}</div>
+    <div class="card"><div class="row"><select class="langsel" id="lang-sel">${LANGS.map(l=>'<option value="'+l[0]+'">'+l[1]+'</option>').join('')}</select></div></div>
+  </div>
+
+  <div class="foot">
+    <div class="wm">THE REAL UNDERGROUND</div>
+    <div class="cr">Stopword · v2.0<br>${t('m_dev')}</div>
+  </div>`;
+  wireSettings();
+}
+
+function selSeg(id, v){ [...$('#'+id).children].forEach(b=>b.classList.toggle('sel', b.dataset.v===v)); }
+function setTgl(id, on){ $('#'+id).classList.toggle('on', !!on); }
+function twoRowsVis(){ $('#row-twoval').classList.toggle('hidden', !S.two); $('#row-twomode').classList.toggle('hidden', !S.two); }
+function styleRowsVis(){
+  $('#row-iosstyle').classList.toggle('hidden', S.skin!=='ios');
+  $('#row-androidstyle').classList.toggle('hidden', S.skin!=='android');
+  $('#row-navpos').classList.remove('hidden');   /* nav position available on every skin */
+}
+
+const PV_H = 325, DEV_H = 844;
+function renderPreview(){
+  const pv=$('#pv'); if(!pv) return;
+  pv.classList.toggle('android', S.skin==='android');
+  pv.classList.toggle('android-black', S.skin==='android' && (S.androidStyle||'grey')==='black');
+  pv.classList.toggle('ios-latest', S.skin==='ios' && (S.iosStyle||'latest')==='latest');
+  const scale = PV_H / (device.clientHeight || DEV_H);
+  pv.style.setProperty('--pv-y', ((S.clockY||0)*scale).toFixed(1)+'px');
+  pv.style.setProperty('--pv-nav-y', ((S[curNavKey()]||0)*scale).toFixed(1)+'px');
+}
+
+function wireSettings(){
+  selSeg('seg-skin', S.skin); selSeg('seg-glitch', S.glitch||'normal'); selSeg('seg-twomode', S.twoMode||'solo');
+  selSeg('seg-iosstyle', S.iosStyle||'latest'); selSeg('seg-androidstyle', S.androidStyle||'grey');
+  $('#preset-in').value=S.presetWord||''; setTgl('tgl-preset', S.usePreset);
+  $('#delay').value=Math.round((S.clockDelay==null?6:S.clockDelay)*10); $('#delay-v').textContent=(S.clockDelay==null?6:S.clockDelay).toFixed(1)+'s';
+  setTgl('tgl-two', S.two); $('#twoval-in').value=S.twoVal||''; twoRowsVis();
+  styleRowsVis(); renderPreview();
+
+  $('#set-done').addEventListener('click', closeSettings);
+  { const ls=$('#lang-sel'); if(ls){ ls.value=S.lang||'en'; ls.addEventListener('change', e=>{ S.lang=e.target.value; save(); applyLang(); buildSettings(); }); } }
+  $('#seg-skin').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; S.skin=b.dataset.v; selSeg('seg-skin',S.skin); applySkin(); styleRowsVis(); renderPreview(); save(); });
+  $('#seg-iosstyle').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; S.iosStyle=b.dataset.v; selSeg('seg-iosstyle',S.iosStyle); applySkin(); styleRowsVis(); renderPreview(); save(); });
+  $('#seg-androidstyle').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; S.androidStyle=b.dataset.v; selSeg('seg-androidstyle',S.androidStyle); applySkin(); renderPreview(); save(); });
+  $('#seg-glitch').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; S.glitch=b.dataset.v; selSeg('seg-glitch',S.glitch); save(); });
+  $('#seg-twomode').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; S.twoMode=b.dataset.v; selSeg('seg-twomode',S.twoMode); save(); });
+  $('#preset-in').addEventListener('input', e=>{ S.presetWord=e.target.value; save(); });
+  $('#tgl-preset').addEventListener('click', ()=>{ S.usePreset=!S.usePreset; setTgl('tgl-preset',S.usePreset); save(); });
+  $('#delay').addEventListener('input', e=>{ S.clockDelay=(+e.target.value)/10; $('#delay-v').textContent=S.clockDelay.toFixed(1)+'s'; save(); });
+  $('#tgl-two').addEventListener('click', ()=>{ S.two=!S.two; setTgl('tgl-two',S.two); twoRowsVis(); save(); });
+  $('#twoval-in').addEventListener('input', e=>{ S.twoVal=e.target.value.replace(/[^0-9]/g,'').slice(0,2); e.target.value=S.twoVal; save(); });
+  $('#ty-up').addEventListener('click', ()=>{ S.clockY=Math.max(-140,(S.clockY||0)-8); applyClockY(); renderPreview(); save(); });
+  $('#ty-down').addEventListener('click', ()=>{ S.clockY=Math.min(140,(S.clockY||0)+8); applyClockY(); renderPreview(); save(); });
+  $('#ty-reset').addEventListener('click', ()=>{ S.clockY=0; applyClockY(); renderPreview(); save(); });
+  $('#ny-up').addEventListener('click', ()=>{ const k=curNavKey(); S[k]=Math.min(160,(S[k]||0)+8); applySkin(); renderPreview(); save(); });
+  $('#ny-down').addEventListener('click', ()=>{ const k=curNavKey(); const min=isFloating()?-80:-40; S[k]=Math.max(min,(S[k]||0)-8); applySkin(); renderPreview(); save(); });
+  $('#ny-reset').addEventListener('click', ()=>{ const k=curNavKey(); S[k]=0; applySkin(); renderPreview(); save(); });
+}
+function openSettings(){ buildSettings(); $('#settings').classList.add('show'); }
+function closeSettings(){ $('#settings').classList.remove('show'); }
+
+/* ---------------- install gate ---------------- */
+function isStandalone(){
+  return window.matchMedia('(display-mode: standalone)').matches
+      || window.matchMedia('(display-mode: fullscreen)').matches
+      || window.navigator.standalone === true;
+}
+function initInstallGate(){
+  if(isStandalone()) return;                 /* already installed: no gate */
+  const ua = navigator.userAgent || '';
+  const ios = /iphone|ipad|ipod/i.test(ua) || (/Macintosh/i.test(ua) && 'ontouchend' in document);
+  const android = /android/i.test(ua);
+  $('#ig-ios').style.display     = ios ? '' : 'none';
+  $('#ig-android').style.display = android ? '' : 'none';
+  $('#ig-generic').style.display = (!ios && !android) ? '' : 'none';
+  $('#install-gate').classList.add('show');
+}
+$('#ig-continue').addEventListener('click', ()=>$('#install-gate').classList.remove('show'));
+
+/* ---------------- keep the screen awake (Wake Lock + legacy video) ---------------- */
+const NoSleep=(function(){
+  const WEBM="data:video/webm;base64,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";
+  const MP4="data:video/mp4;base64,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";
+  let wl=null, vid=null, enabled=false;
+  const hasWL=('wakeLock' in navigator);
+  function makeVid(){
+    if(vid) return vid;
+    vid=document.createElement('video');
+    vid.setAttribute('title','Stopword'); vid.setAttribute('playsinline',''); vid.playsInline=true;
+    vid.muted=true; vid.setAttribute('muted',''); vid.loop=true; vid.setAttribute('loop','');
+    vid.style.cssText='position:fixed;left:-120px;top:-120px;width:2px;height:2px;opacity:0;pointer-events:none;';
+    const canWebm=vid.canPlayType&&vid.canPlayType('video/webm')!=='';
+    const s=document.createElement('source'); s.src=canWebm?WEBM:MP4; s.type=canWebm?'video/webm':'video/mp4';
+    vid.appendChild(s); document.body.appendChild(vid);
+    return vid;
+  }
+  async function reqWL(){ try{ wl=await navigator.wakeLock.request('screen'); return true; }catch(_){ return false; } }
+  async function enable(){
+    enabled=true;
+    if(hasWL) reqWL();                    /* modern webkit / standard wake lock */
+    const v=makeVid();                    /* legacy invisible looping video */
+    try{ await v.play(); }catch(_){}
+  }
+  document.addEventListener('visibilitychange', ()=>{
+    if(!enabled || document.visibilityState!=='visible') return;
+    if(hasWL) reqWL();
+    if(vid) vid.play().catch(()=>{});
+  });
+  return { enable };
+})();
+(function(){
+  let done=false;
+  const go=()=>{ if(done) return; done=true; NoSleep.enable(); };
+  ['pointerdown','touchend','click','keydown'].forEach(ev=>window.addEventListener(ev, go, {passive:true}));
+  NoSleep.enable();   /* attempt immediately; retried on first interaction if blocked */
+})();
+
+/* ---------------- boot ---------------- */
+applySkin(); applyClockY();
+clockReset();
+applyLang();
+$('#word-in').value = (!S.usePreset && S.presetWord) ? S.presetWord : '';
+if(S.usePreset && (S.presetWord||'').trim()){ openStopwatch(S.presetWord); }
+initInstallGate();
+window.addEventListener('resize', ()=>{ if(device.classList.contains('clock-open')) clFit(); });
+</script><video title="Stopword" playsinline="" muted="" loop="" style="position: fixed; left: -120px; top: -120px; width: 2px; height: 2px; opacity: 0; pointer-events: none;"><source src="data:video/webm;base64,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" type="video/webm"></video>
+
+
+</body></html>
