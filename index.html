@@ -437,6 +437,19 @@ function isRTL(s){ return /[\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F
 let clRun=false, clStart=0, clElapsed=0, clTick=null, clLaps=[], clLapBase=0, clFrozen=false;
 let clRevealT=null, clGlitchT=null, clUnfreezeT=null;
 let clockWord='MAGIC', clockForce='';
+let revealSfx=null, revealSfxReady=false;
+function prepareRevealSfx(){
+  if(revealSfxReady) return;
+  if(!revealSfx){ revealSfx=new Audio('sounds/mixkit-game-glitch-1036.wav'); revealSfx.preload='auto'; }
+  revealSfx.muted=true;
+  const p=revealSfx.play();
+  if(p && typeof p.then==='function') p.then(()=>{ revealSfx.pause(); revealSfx.currentTime=0; revealSfx.muted=false; revealSfxReady=true; }).catch(()=>{ revealSfx.muted=false; });
+}
+function playRevealSfx(){
+  if(!revealSfx) revealSfx=new Audio('sounds/mixkit-game-glitch-1036.wav');
+  revealSfx.muted=false; revealSfx.currentTime=0;
+  const p=revealSfx.play(); if(p && typeof p.catch==='function') p.catch(()=>{});
+}
 /* after a reveal settles, hand the stopwatch back so Reset / Start behave normally again */
 function scheduleUnfreeze(ms){ clearTimeout(clUnfreezeT); clUnfreezeT=setTimeout(()=>{ clFrozen=false; clSetButtons(); }, ms); }
 
@@ -489,6 +502,7 @@ function clockLap(){
 function clockGo(){
   if(clFrozen) return;
   if(!clRun){
+    prepareRevealSfx();
     clRun=true; clStart=Date.now();
     clTick=setInterval(clRender, 31);
     clSetButtons(); clRenderLaps();
@@ -542,6 +556,7 @@ function clockGlitch(){
       clearInterval(clGlitchT); clGlitchT=null;
       el2.style.transform=''; el2.style.textShadow='';
       device.classList.remove('cl-invert');
+      playRevealSfx();
       paintReveal(word, clockWord);
       scheduleUnfreeze(1600);   /* hand the stopwatch back a moment after the word lands */
       return;
@@ -568,6 +583,7 @@ function applySkin(){
 }
 function applyClockY(){ R.style.setProperty('--clock-y', (S.clockY||0)+'px'); }
 function openStopwatch(word){
+  prepareRevealSfx();
   clockWord = (word && word.trim()) ? word.trim() : (S.presetWord||'MAGIC');
   clockForce = (S.twoVal||'').replace(/[^0-9]/g,'').slice(0,2);
   clockReset();
