@@ -491,6 +491,11 @@ function previewSfx(){
   audio.addEventListener('ended',()=>{ if(revealPreviewAudio===audio) stopPreviewSfx(); });
   const p=audio.play(); if(p && typeof p.catch==='function') p.catch(()=>stopPreviewSfx());
 }
+function selectedAudioDurationMs(){
+  const path=soundPath();
+  if(!path || revealAudioBufferKey!==path || !revealAudioBuffer) return CL_GLITCH.normal.ms;
+  return Math.max(80, Math.round(revealAudioBuffer.duration*1000));
+}
 function scheduleRevealSfx(delayMs){
   const path=soundPath(); if(!path) return;
   const ctx=getRevealAudioContext(); if(!ctx) return;
@@ -580,8 +585,9 @@ function clockGo(){
     }
     const d=Math.max(0, Number(S.clockDelay===undefined?6:S.clockDelay))*1000;
     if(wantWord) scheduleRevealSfx(d);
+    const effectMs=S.glitch==='effect' ? selectedAudioDurationMs() : null;
     clearTimeout(clRevealT);
-    clRevealT=setTimeout(clockGlitch, d);   /* word reveal, alone or after the forced number */
+    clRevealT=setTimeout(()=>clockGlitch(effectMs), d);   /* word reveal, alone or after the forced number */
   }
 }
 
@@ -601,8 +607,10 @@ function paintReveal(leeted, original){
   }
   clFit();
 }
-function clockGlitch(){
-  const cfg=CL_GLITCH[S.glitch||'normal']||CL_GLITCH.normal;
+function clockGlitch(effectMsOverride){
+  const base=CL_GLITCH[S.glitch||'normal']||CL_GLITCH.normal;
+  const effectMs=effectMsOverride||base.ms;
+  const cfg=effectMsOverride ? Object.assign({},base,{ms:effectMs,flips:Math.max(1,Math.min(20,Math.round(effectMs/500)))}) : base;
   const word=leetWord(clockWord||S.presetWord||'MAGIC');
   clFrozen=true;
   const t0=Date.now();
@@ -729,7 +737,7 @@ function buildSettings(){
       <div class="slrow"><div class="top"><span>${t('s_delay')}</span><b id="delay-v">6.0s</b></div>
         <input type="range" class="range" id="delay" min="0" max="300" step="5" value="60"></div>
       <div class="row"><div class="rl-wrap"><div class="rlbl">${t('s_glitch')}</div></div>
-        <div class="seg" id="seg-glitch"><button data-v="subtle">${t('s_subtle')}</button><button data-v="normal">${t('s_normal')}</button><button data-v="heavy">${t('s_heavy')}</button></div></div>
+        <div class="seg" id="seg-glitch"><button data-v="subtle">${t('s_subtle')}</button><button data-v="normal">${t('s_normal')}</button><button data-v="heavy">${t('s_heavy')}</button><button data-v="effect">Efeito</button></div></div>
       <div class="row"><div class="rl-wrap"><div class="rlbl">${S.lang==='pt'?'Efeito sonoro':'Reveal sound'}</div><div class="rsub">${S.lang==='pt'?'Escolha a vinheta da revelação':'Choose the sound played at reveal'}</div></div>
         <div class="sound-pick"><select class="langsel" id="sound-sel">${SOUND_OPTIONS.map(o=>'<option value="'+o[0]+'">'+soundText(o)+'</option>').join('')}</select><button type="button" class="sound-play" id="sound-preview" aria-label="Ouvir efeito">▶</button></div></div>
     </div>
